@@ -89,7 +89,36 @@ Stack Trace:
 ```
 
 
-### case 3: sensor + asset: how to transfer the configuration?
+### case 3: sensor + asset: how to transfer the configuration? 
+#### Step 1: Workaround (sftp_sensor_asset_workaround.py)
 
-workaround: asset
+Using an OP I can pass the metadata (key/file path) form the sensor to the job for later materialization of the remote file in a central analytics location (DWH/lake/whatever).
 
+Status: running, but: not SDA native, requires several sensors to be created to link up further assets & update these in case of changes
+
+The:
+
+```
+dummy_asset__bar
+dummy_asset__baz
+dummy_asset__foo
+```
+
+are created successfully.
+
+#### Step 2: direct but failing (sftp_sensor_asset.py)
+
+Status failing: I cannot pass the configuration to the asset. How can I accomplish this task?
+
+
+### case 4 multi asset updates + trigger comptuation step
+
+After materialization of a partition trigger a computation step (for each of the tables/assets/CSV files) which outputs (for each of them) a new asset.
+
+TODO - first finish the open topics above
+
+### case 5
+
+After case 4 combine the outputs of 4 (SQL: JOIN) and then perform a big computation / update. Via DBT & DuckDB
+
+TODO - first finish the open topics above
