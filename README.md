@@ -96,7 +96,7 @@ Using an OP I can pass the metadata (key/file path) form the sensor to the job f
 
 Status: running, but: not SDA native, requires several sensors to be created to link up further assets & update these in case of changes
 
-The:
+The files in the SFTP directory https://github.com/geoHeil/dagster-ssh-demo/tree/master/sft_sample/upload/2022-01-01 (for each day 2022-01-01 ... 02/03) the tables/CSVs foo,bar,baz are present. For each of these three tables an output asset should be created - and it is:
 
 ```
 dummy_asset__bar
@@ -104,7 +104,9 @@ dummy_asset__baz
 dummy_asset__foo
 ```
 
-are created successfully.
+They are all created successfully.
+However, it seems to be cumbersome to add for each of these a sensor that would fire off any additonal compute step (4,5) whereas in the world of software defined assets this should be automatic (by the lineage of the assets). Also the lineage is missiong.
+Would a source asset perhaps work here? So far, I did not manage to get this to work as desired.
 
 #### Step 2: direct but failing (sftp_sensor_asset.py)
 
