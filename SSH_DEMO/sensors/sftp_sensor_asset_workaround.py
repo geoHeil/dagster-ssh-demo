@@ -1,10 +1,10 @@
-from dagster import op, job, DefaultSensorStatus, resource, sensor, RunRequest, build_resources
+from dagster import op, job, DefaultSensorStatus, resource, sensor, RunRequest, build_resources, asset
 import os
 import re
 import stat
 import paramiko
 from pathlib import Path
-from dagster import AssetMaterialization, AssetKey
+from dagster import AssetMaterialization, AssetKey, AssetGroup
 
 
 @op(config_schema={"filename": str})
@@ -112,3 +112,38 @@ def my_directory_sensor_SFTP_asset_workaround():
 
         sftp.close()
         ssh.close()
+
+
+# case 4: trigger some computation afterwards
+# DISABLED!!!
+# DagsterInvalidDefinitionError: Input asset '["dummy_asset__foo"]' for asset 'my_asset_computation' is not produced by any of the provided asset ops and is not one of the provided sources 
+
+# from dagster import AssetKey, asset_sensor, get_dagster_logger
+# @asset
+# def my_asset_computation(dummy_asset__foo):
+    # case 4: trigger some computation afterwards
+    # TODO get active partition / input key
+#     get_dagster_logger().info.info('xxxxx')
+    # return [4,5,6]
+
+# dummy_asset_ag = AssetGroup(
+     # assets=[my_asset_computation],
+  #    source_assets=[],
+ #     resource_defs={}, # resource_defs why can`t I pass these resource defs/configurations?
+# )
+# asset_job_next_step = dummy_asset_ag.build_job("real_asset_dummy_computation_next_step", selection=["my_asset_computation"])
+
+#@asset_sensor(asset_key=AssetKey("dummy_asset__foo"), job=asset_job_next_step)
+#def my_asset_sensor(context, asset_event):
+#    yield RunRequest(
+#        run_key=context.cursor,
+#        run_config={
+#            "ops": {
+#                "read_materialization": {
+#                    "config": {
+#                        "asset_key": asset_event.dagster_event.asset_key.path,
+#                    }
+#                }
+#            }
+#        },
+#    )

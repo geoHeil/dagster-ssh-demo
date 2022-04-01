@@ -2,7 +2,7 @@ from dagster import repository
 
 from SSH_DEMO.sensors.sftp_sensor_dummy import my_directory_sensor_SFTP, log_file_job_remote_dummy
 from SSH_DEMO.sensors.sftp_sensor_dummy_provided_resource import my_directory_sensor_SFTP_provided_resource, log_file_job_remote_dummy_provided_resource
-from SSH_DEMO.sensors.sftp_sensor_asset_workaround import my_directory_sensor_SFTP_asset_workaround, log_file_job_remote_asset_workaround
+from SSH_DEMO.sensors.sftp_sensor_asset_workaround import my_directory_sensor_SFTP_asset_workaround, log_file_job_remote_asset_workaround#, asset_job_next_step, my_asset_sensor
 from SSH_DEMO.sensors.sftp_sensor_asset_real import my_directory_sensor_SFTP_asset_real, asset_job
 
 
@@ -26,7 +26,10 @@ def SSH_DEMO():
     log_file_job_remote_asset_workaround,
 
     #case 3 real asset B
-    asset_job
+    asset_job,
+
+    #case 4
+    #asset_job_next_step
     ]
     schedules = []
     sensors = [
@@ -41,7 +44,10 @@ def SSH_DEMO():
     my_directory_sensor_SFTP_asset_workaround,
 
     # case 3 real asset B
-    my_directory_sensor_SFTP_asset_real
+    my_directory_sensor_SFTP_asset_real,
+
+    # case 4
+    #my_asset_sensor
     ]
 
     return jobs + schedules + sensors

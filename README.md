@@ -117,7 +117,14 @@ Status failing: I cannot pass the configuration to the asset. How can I accompli
 
 After materialization of a partition trigger a computation step (for each of the tables/assets/CSV files) which outputs (for each of them) a new asset.
 
-TODO - first finish the open topics above
+When trying to work with the workaround presented before and reading the assets directly with an `asset_sensor` the job fails with:
+```
+DagsterInvalidDefinitionError: Input asset '["dummy_asset__foo"]' for asset 'my_asset_computation' is not produced by any of the provided asset ops and is not one of the provided sources
+```
+As the dynamically generated asset somehow cannot be referenced. Why is this the case? How can I obtain a valid reference?
+
+
+When Step 2 works: How can the whole process be simplfied?
 
 ### case 5
 
