@@ -1,0 +1,24 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pandas
+  - pyarrow
+  - pip
+  - pyspark
+  - python-duckdb
+  - paramiko
+
+  - pip:
+    - dagster
+    - dagster-ssh
+    - dagster-pandas
+    - dagster-postgres
+    - dagster-dbt
+    - dagster-pyspark
+    - dbt-core
+    - dbt-postgres
+    - dbt-duckdb
+    - dagit
+    - polars
