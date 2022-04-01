@@ -101,24 +101,6 @@ resource_defs = {
     }
 }
 
-from dagster import AssetGroup, SourceAsset, AssetKey
-from dagster import asset, get_dagster_logger
-
-#@asset#(config_schema={"filename": str})
-#def my_asset(context):
-#    filename = context.op_config["filename"]
-#    context.log.info(filename)
-    #get_dagster_logger().info.info(file_path)
-    #return [1, 2, 3]
-
-# dummy_asset_ag = AssetGroup(
-#     assets=[my_asset],
-#     source_assets=[],
-#     resource_defs={},
-# )
-#dummy_asset_pipeline = dummy_asset_ag.build_job("dummy_asset")
-
-#@sensor(job=dummy_asset_ag.build_job("dummy_asset", selection=["my_asset"]),default_status=DefaultSensorStatus.RUNNING)
 @sensor(job=log_file_job_remote_asset_workaround, default_status=DefaultSensorStatus.RUNNING)
 def my_directory_sensor_SFTP_asset_workaround():
     with build_resources(
