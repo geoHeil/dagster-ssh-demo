@@ -1,4 +1,4 @@
-from dagster import op, job, DefaultSensorStatus, resource, sensor, RunRequest, build_resources
+from dagster import op, job, DefaultSensorStatus, sensor, RunRequest, build_resources
 import os
 import re
 import stat
@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 @op(config_schema={"filename": str})
-def process_file_dummy(context):
+def process_file_dummy_provided_resource(context):
     filename = context.op_config["filename"]
     context.log.info(filename)
 
@@ -41,56 +41,41 @@ def paramiko_glob(path, pattern, sftp):
             file_list.append(RunRequest(
                  run_key=f,
                  run_config={
-                     "ops": {"process_file_dummy": {"config": {"filename": f}}}
+                     "ops": {"process_file_dummy_provided_resource": {"config": {"filename": f}}}
                  },
              ))
     return file_list
 
 @job
-def log_file_job_remote_dummy():
-    process_file_dummy()
-
-@resource(config_schema={"username": str, "password": str})
-def the_credentials(init_context):
-    user_resource = init_context.resource_config["username"]
-
-    # it is better to read the password from the environment?
-    pass_resource = init_context.resource_config["password"]
-    return user_resource, pass_resource
-
-@resource(config_schema={"remote_host": str, "remote_port": int}, required_resource_keys={"credentials"})
-def my_ssh_resource(init_context):
-    credentials = init_context.resources.credentials
-    user, password = credentials
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    host = init_context.resource_config["remote_host"]
-    port = init_context.resource_config["remote_port"]
-    ssh.connect(host, port=port, username=user, password=password)
-    return ssh
+def log_file_job_remote_dummy_provided_resource():
+    process_file_dummy_provided_resource()
 
 resource_defs = {
-    "credentials": { 
-        'config': {
-            'username': 'foo',
-            'password': 'bar'
-         },
-    },
     "ssh":{
         "config":{
             "remote_host": "localhost",
             "remote_port": 2222,
+            'username': 'foo',
+            'password': 'bar'
         }
     }
 }
 
-@sensor(job=log_file_job_remote_dummy, default_status=DefaultSensorStatus.RUNNING)
-def my_directory_sensor_SFTP():
+from dagster_ssh.resources import SSHResource
+from dagster_ssh.resources import ssh_resource as sshresource
+
+@sensor(job=log_file_job_remote_dummy_provided_resource, default_status=DefaultSensorStatus.RUNNING)
+def my_directory_sensor_SFTP_provided_resource():
     with build_resources(
-        { "credentials": the_credentials, "ssh": my_ssh_resource}, resource_config=resource_defs
+        { "ssh": sshresource}, resource_config=resource_defs
     ) as resources:
 
         ssh = resources.ssh
+
+        # :rtype: paramiko.client.SSHClient
+        # this internally is calling paramiko.client.SSHClient.connect (but failing)
+        # before I manually did the same thing but succeeded. Where is the error? I cannot spot it right now.
+        ssh.get_connection()
         sftp = ssh.open_sftp()
 
         # Actucal call of paramiko_glob.
