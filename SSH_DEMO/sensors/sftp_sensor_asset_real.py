@@ -1,64 +1,104 @@
-from dagster import op, job, DefaultSensorStatus, resource, sensor, RunRequest, build_resources
 import os
-import re
-import stat
+from dagster import (
+    sensor,
+    asset,
+    DailyPartitionsDefinition,
+    SkipReason,
+    get_dagster_logger,
+    resource,
+    build_resources,
+    DefaultSensorStatus
+)
+from datetime import datetime, timedelta
 import paramiko
 from pathlib import Path
-from dagster import AssetMaterialization, AssetKey
+import pandas as pd
 
-# Example remote SFTP sensor
-# spin up the docker-compose file
-# based on: https://gist.github.com/lkluft/ddda28208f7658d93f8238ad88bd45f2
-def paramiko_glob(path, pattern, sftp):
-    """Search recursively for files matching a given pattern.
-    
-    Parameters:
-        path (str): Path to directory on remote machine.
-        pattern (str): Python re [0] pattern for filenames.
-        sftp (SFTPClient): paramiko SFTPClient.
-        
-    [0] https://docs.python.org/2/library/re.html
-        
+# TODO: before committing restructure like the HN job for a nicer user experience
+
+DATE_FORMAT = "%Y-%m-%d"
+START_DATE = "2022-01-01"
+
+# path for the directory as served from the SFT server
+GLOBAL_PREFIX = "upload/"
+
+
+def _source_path_from_context(context):
+    return (
+        context.solid_def.output_defs[0].metadata["source_file_base_path"]
+        + "/"
+        + context.partition_key
+        + "/"
+        + context.solid_def.output_defs[0].metadata["source_file_name"]
+    )
+
+
+def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwargs) -> pd.DataFrame:
     """
-    p = re.compile(pattern)
-    root = sftp.listdir(path)
-    file_list = []
-    
-    # Loop over all entries in given path...
-    for f in (os.path.join(path, entry) for entry in root):
-        f_stat = sftp.stat(f)
-        # ... if it is a directory call paramiko_glob recursively.
-        if stat.S_ISDIR(f_stat.st_mode):
-            file_list += paramiko_glob(f, pattern, sftp)
-        # ... if it is a file, check the name pattern and append it to file_list.
-        elif p.match(f):
-            #file_list.append(f)
-            file_list.append(RunRequest(
-                 run_key=f,
-                 run_config={
-                     "ops": {
-                         "my_asset": {
-                             #"config": {"filename": f}
-                             # It is very unclear to me how to propagate the details here over to the Asset
-                             "config": {
-                                 "assets": {
-                                     "input_partitions" : {"filename": f}
-                                 }
-                             }
-                         }
-                     }
-                     #"ops": {"filename": {"config": {"filename": f}}}#,
-                     #"assets": {"filename": {"config": {"filename": f}}},
-                     #"my_asset": {"filename": {"config": {"filename": f}}}
-                 },
-             ))
-    return file_list
+    Read a file from a remote host using SFTP over SSH.
+    Args:
+        sftp: the already initialized paramikro SFTP session
+        partition_key: the key of the processed partition
+        *args: positional arguments to pass to pd.read_csv
+        **kwargs: keyword arguments to pass to pd.read_csv
+    Returns:
+        a pandas DataFrame with data loaded from the remote host
+    """
+    # print(f'Reading: {remotepath}')
+    remote_file = sftp.open(remotepath)
+    dataframe = pd.read_csv(remote_file, *args, **kwargs)
+    # print(extracted_date)
+    dataframe['event_dt'] = partition_key
+    now_ts = pd.Timestamp.now()  
+    dataframe['load_ts'] = now_ts
+    remote_file.close()
+    return dataframe
+
+
+
+@asset(
+    partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
+    metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "foo.csv"},
+)
+def foo_asset(context):
+    path = _source_path_from_context(context)
+    get_dagster_logger().info(f"Processing file '{path}'")
+
+    # TODO: how to get the resource here for the asset?
+    #df = read_csv_sftp_direct(ssh, path, context.partition_key)
+
+
+@asset(
+    partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
+    metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "bar.csv"},
+)
+def bar_asset(context):
+    _shared_helper(context)
+
+
+@asset(
+    partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
+    metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "baz.csv"},
+)
+def baz_asset(context):
+    _shared_helper(context)
+
+
+def _shared_helper(context):
+    path = _source_path_from_context(context)
+    get_dagster_logger().info(f"Shared processing file '{path}'")
+
+
+@asset
+def combined_asset(context):
+    get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
+
 
 @resource(config_schema={"username": str, "password": str})
 def the_credentials(init_context):
     user_resource = init_context.resource_config["username"]
 
-    # TODO: perhaps it is better to read the password from the environment?
+    # it is better to read the password from the environment?
     pass_resource = init_context.resource_config["password"]
     return user_resource, pass_resource
 
@@ -88,41 +128,45 @@ resource_defs = {
     }
 }
 
-from dagster import AssetGroup, SourceAsset, AssetKey
-from dagster import asset, get_dagster_logger
 
-# this fails as well
-#@asset(config_schema={"filename": str})
-@asset
-def my_asset(context):
-    # TODO: where to get the remote file name as the input to the asset?
-    # The task is to retrieve the CSV and store it via some IO manager
-    # Multiple CSV file names (tables) are present in each folder (date)
-    # for each - compute an output. Not sure if this might be called dynamic asset?
-    # Perhaps also the setup of the graph needs to be different?
+def sftp_exists(sftp, path):
+    try:
+        sftp.stat(path)
+        return True
+    except FileNotFoundError:
+        return False
 
-    #filename = context.asset_config["filename"]
-    #filename = context.op_config["filename"]
-    #context.log.info(filename)
-    #get_dagster_logger().info.info(file_path)
+def close(sftp, ssh):
+    sftp.close()
+    ssh.close()
 
-    # TODO: generate one asset per filename (once the asset-based-approach works at all)
-    return [1, 2, 3]
+def make_date_file_sensor_for_asset(asset, asset_group):
+    job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
 
-dummy_asset_ag = AssetGroup(
-     assets=[my_asset],
-     source_assets=[],
-     resource_defs={}, # resource_defs why can`t I pass these resource defs/configurations?
-)
-asset_job = dummy_asset_ag.build_job("real_asset_dummy", selection=["my_asset"])
-@sensor(job=asset_job,default_status=DefaultSensorStatus.RUNNING)
-def my_directory_sensor_SFTP_asset_real():
-    with build_resources(
-        { "credentials": the_credentials, "ssh": my_ssh_resource}, resource_config=resource_defs
-    ) as resources:
-        ssh = resources.ssh
-        sftp = ssh.open_sftp()
-        yield from paramiko_glob('upload/', '.*\.csv', sftp)
+    @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
+    def date_file_sensor(context):
+        with build_resources(
+            { "credentials": the_credentials, "ssh": my_ssh_resource}, resource_config=resource_defs
+        ) as resources:
+            ssh = resources.ssh
+            sftp = ssh.open_sftp()
 
-        sftp.close()
-        ssh.close()
+
+            last_processed_date = context.cursor
+            if last_processed_date is None:
+                next_date = START_DATE
+            else:
+                next_date = (
+                    datetime.strptime(last_processed_date, DATE_FORMAT) + timedelta(days=1)
+                ).strftime(DATE_FORMAT)
+
+            path = asset.op.output_defs[0].metadata["source_file_base_path"] + "/" + next_date + "/" + asset.op.output_defs[0].metadata["source_file_name"]            
+            if sftp_exists(sftp, path):
+                context.update_cursor(next_date)
+                close(sftp, ssh)
+                return job_def.run_request_for_partition(next_date, run_key=path)
+            else:
+                close(sftp, ssh)
+                return SkipReason(f"Did not find file {path}")
+
+    return date_file_sensor
