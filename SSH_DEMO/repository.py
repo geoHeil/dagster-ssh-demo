@@ -4,7 +4,7 @@ from SSH_DEMO.sensors.sftp_sensor_dummy import my_directory_sensor_SFTP, log_fil
 from SSH_DEMO.sensors.sftp_sensor_dummy_provided_resource import my_directory_sensor_SFTP_provided_resource, log_file_job_remote_dummy_provided_resource
 from SSH_DEMO.sensors.sftp_sensor_asset_workaround import my_directory_sensor_SFTP_asset_workaround, log_file_job_remote_asset_workaround#, asset_job_next_step, my_asset_sensor
 #from SSH_DEMO.sensors.sftp_sensor_asset_real import my_directory_sensor_SFTP_asset_real, asset_job
-from SSH_DEMO.sensors.sftp_sensor_asset_real import foo_asset, combined_asset, bar_asset, baz_asset, make_date_file_sensor_for_asset
+from SSH_DEMO.sensors.sftp_sensor_asset_real import foo_asset, combined_asset, bar_asset, baz_asset, make_date_file_sensor_for_asset, make_multi_join_sensor_for_asset
 
 asset_group = AssetGroup([foo_asset, bar_asset, baz_asset, combined_asset])
 
@@ -12,7 +12,7 @@ asset_group = AssetGroup([foo_asset, bar_asset, baz_asset, combined_asset])
 def SSH_DEMO():
     return [
         asset_group,
-        asset_group.build_job(name=combined_asset.op.name + "_job", selection=[combined_asset.op.name]),
+        make_multi_join_sensor_for_asset(combined_asset, asset_group),
         make_date_file_sensor_for_asset(foo_asset, asset_group),
         make_date_file_sensor_for_asset(bar_asset, asset_group),
         make_date_file_sensor_for_asset(baz_asset, asset_group),

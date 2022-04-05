@@ -7,9 +7,13 @@ from dagster import (
     get_dagster_logger,
     resource,
     build_resources,
-    DefaultSensorStatus
+    DefaultSensorStatus, AssetKey, RunRequest
 )
+import json
+from dagster import EventRecordsFilter, DagsterEventType
+
 from datetime import datetime, timedelta
+from dagster_pandas import DataFrame
 import paramiko
 from pathlib import Path
 import pandas as pd
@@ -20,7 +24,7 @@ DATE_FORMAT = "%Y-%m-%d"
 START_DATE = "2022-01-01"
 
 # path for the directory as served from the SFT server
-GLOBAL_PREFIX = "upload/"
+GLOBAL_PREFIX = "upload"
 
 
 def _source_path_from_context(context):
@@ -90,7 +94,7 @@ def _shared_helper(context):
 
 
 @asset
-def combined_asset(context):
+def combined_asset(context, foo_asset: DataFrame, bar_asset: DataFrame, baz_asset:DataFrame):
     get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
 
 
@@ -170,3 +174,64 @@ def make_date_file_sensor_for_asset(asset, asset_group):
                 return SkipReason(f"Did not find file {path}")
 
     return date_file_sensor
+
+
+def make_multi_join_sensor_for_asset(asset, asset_group):
+    job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
+
+    @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
+    def multi_asset_join_sensor(context):
+        # https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors#multi-asset-sensors
+        cursor_dict = json.loads(context.cursor) if context.cursor else {}
+        foo_cursor = cursor_dict.get("foo_asset")
+        bar_cursor = cursor_dict.get("bar_asset")
+        baz_cursor = cursor_dict.get("baz_asset")
+
+        foo_event_records = context.instance.get_event_records(
+            EventRecordsFilter(
+                event_type=DagsterEventType.ASSET_MATERIALIZATION,
+                asset_key=AssetKey("table_a"),
+                after_cursor=foo_cursor,
+            ),
+            ascending=False,
+            limit=1,
+        )
+        bar_event_records = context.instance.get_event_records(
+            EventRecordsFilter(
+                event_type=DagsterEventType.ASSET_MATERIALIZATION,
+                asset_key=AssetKey("table_a"),
+                after_cursor=bar_cursor,
+            ),
+            ascending=False,
+            limit=1,
+        )
+        baz_event_records = context.instance.get_event_records(
+            EventRecordsFilter(
+                event_type=DagsterEventType.ASSET_MATERIALIZATION,
+                asset_key=AssetKey("table_a"),
+                after_cursor=baz_cursor,
+            ),
+            ascending=False,
+            limit=1,
+        )
+
+        if not foo_event_records or not bar_event_records or not baz_event_records:
+            return
+
+        # make sure we only generate events if both table_foo and table_bar and table_baz have been materialized since
+        # the last evaluation.
+        yield RunRequest(run_key=None)
+
+        # update the sensor cursor by combining the individual event cursors from the two separate
+        # asset event streams
+        context.update_cursor(
+            json.dumps(
+                {
+                    "foo": foo_event_records[0].storage_id,
+                    "bar": bar_event_records[0].storage_id,
+                    "baz": baz_event_records[0].storage_id,
+                }
+            )
+        )
+
+    return multi_asset_join_sensor
