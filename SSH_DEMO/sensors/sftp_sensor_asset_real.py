@@ -17,15 +17,18 @@ from dagster_pandas import DataFrame
 import paramiko
 from pathlib import Path
 import pandas as pd
+from SSH_DEMO.resources.credentials import the_credentials
+from SSH_DEMO.resources.ssh import my_ssh_resource
 
-# TODO: before committing restructure like the HN job for a nicer user experience
+# TODO: later docker-compose the example
+# TODO: before committing restructure like in the HN job for a nicer user experience
+# TODO add some processing logic here (SCD2 via pyspark)
 
 DATE_FORMAT = "%Y-%m-%d"
 START_DATE = "2022-01-01"
 
-# path for the directory as served from the SFT server
+# path for the directory as served from the SFTP server
 GLOBAL_PREFIX = "upload"
-
 
 def _source_path_from_context(context):
     return (
@@ -35,7 +38,6 @@ def _source_path_from_context(context):
         + "/"
         + context.solid_def.output_defs[0].metadata["source_file_name"]
     )
-
 
 def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwargs) -> pd.DataFrame:
     """
@@ -56,81 +58,70 @@ def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwar
     now_ts = pd.Timestamp.now()  
     dataframe['load_ts'] = now_ts
     remote_file.close()
+    #print(dataframe)
     return dataframe
-
-
 
 @asset(
     partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "foo.csv"},
+    required_resource_keys={"credentials", "ssh"},
+    io_manager_key="parquet_io_manager"
 )
 def foo_asset(context):
     path = _source_path_from_context(context)
     get_dagster_logger().info(f"Processing file '{path}'")
 
-    # TODO: how to get the resource here for the asset?
-    #df = read_csv_sftp_direct(ssh, path, context.partition_key)
-
+    ssh = context.resources.ssh
+    sftp = ssh.open_sftp()
+    df = read_csv_sftp_direct(sftp, path, context.partition_key)
+    print(df)
+    return df
 
 @asset(
     partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "bar.csv"},
+    required_resource_keys={"credentials", "ssh"},
+    io_manager_key="parquet_io_manager"
 )
 def bar_asset(context):
-    _shared_helper(context)
+    return _shared_helper(context)
 
 
 @asset(
     partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "baz.csv"},
+    required_resource_keys={"credentials", "ssh"},
+    io_manager_key="parquet_io_manager"
 )
 def baz_asset(context):
-    _shared_helper(context)
+    return _shared_helper(context)
 
 
 def _shared_helper(context):
     path = _source_path_from_context(context)
     get_dagster_logger().info(f"Shared processing file '{path}'")
 
+    ssh = context.resources.ssh
+    sftp = ssh.open_sftp()
+    df = read_csv_sftp_direct(sftp, path, context.partition_key)
+    print(df)
+    return df
 
-@asset
+
+#############
+# TODO: add in 3x assets which are compacted (using SCD2 and pyspark). These are not partitioned 
+# and should be triggered from some sensor on any input asset completion
+#############
+
+@asset(io_manager_key="parquet_io_manager")
 def combined_asset(context, foo_asset: DataFrame, bar_asset: DataFrame, baz_asset:DataFrame):
     get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
 
-
-@resource(config_schema={"username": str, "password": str})
-def the_credentials(init_context):
-    user_resource = init_context.resource_config["username"]
-
-    # it is better to read the password from the environment?
-    pass_resource = init_context.resource_config["password"]
-    return user_resource, pass_resource
-
-@resource(config_schema={"remote_host": str, "remote_port": int}, required_resource_keys={"credentials"})
-def my_ssh_resource(init_context):
-    credentials = init_context.resources.credentials
-    user, password = credentials
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    host = init_context.resource_config["remote_host"]
-    port = init_context.resource_config["remote_port"]
-    ssh.connect(host, port=port, username=user, password=password)
-    return ssh
-
-resource_defs = {
-    "credentials": { 
-        'config': {
-            'username': 'foo',
-            'password': 'bar'
-         },
-    },
-    "ssh":{
-        "config":{
-            "remote_host": "localhost",
-            "remote_port": 2222,
-        }
-    }
-}
+    # TODO: before feed the compacted assets
+    # TODO add some processing logic here (via DBT) for joining it all up - or perhaps resort to pyspark as well
+    # but DBT/duckdb would be much nicer (or spark via DBT, preferably duckdb though)
+    df = pd.DataFrame({'foo':[1,2,3]})
+    return df
 
 
 def sftp_exists(sftp, path):
@@ -190,7 +181,7 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
         foo_event_records = context.instance.get_event_records(
             EventRecordsFilter(
                 event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                asset_key=AssetKey("table_a"),
+                asset_key=AssetKey("foo_asset"),
                 after_cursor=foo_cursor,
             ),
             ascending=False,
@@ -199,7 +190,7 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
         bar_event_records = context.instance.get_event_records(
             EventRecordsFilter(
                 event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                asset_key=AssetKey("table_a"),
+                asset_key=AssetKey("bar_asset"),
                 after_cursor=bar_cursor,
             ),
             ascending=False,
@@ -208,7 +199,7 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
         baz_event_records = context.instance.get_event_records(
             EventRecordsFilter(
                 event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                asset_key=AssetKey("table_a"),
+                asset_key=AssetKey("baz_asset"),
                 after_cursor=baz_cursor,
             ),
             ascending=False,
