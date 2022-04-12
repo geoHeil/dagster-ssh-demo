@@ -2,6 +2,7 @@ import os
 from typing import Union
 
 import pandas
+import pandas as pd
 import pyspark
 
 from dagster import Field, IOManager, MetadataEntry, OutputContext, check, io_manager
@@ -43,14 +44,15 @@ class PartitionedParquetIOManager(IOManager):
 
     def load_input(self, context) -> Union[pyspark.sql.DataFrame, str]:
         path = self._get_path(context.upstream_output)
-        if context.dagster_type.typing_type == pyspark.sql.DataFrame:
+        #if context.dagster_type.typing_type == pyspark.sql.DataFrame:
             # return pyspark dataframe
-            return context.resources.pyspark.spark_session.read.parquet(path)
+        #    return context.resources.pyspark.spark_session.read.parquet(path)
+        return pd.read_parquet(path)
 
-        return check.failed(
-            f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
-            "for this input either on the argument of the @asset-decorated function."
-        )
+        #return check.failed(
+        #    f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
+        #    "for this input either on the argument of the @asset-decorated function."
+        #)
 
     def _get_path(self, context: OutputContext):
         key = context.asset_key.path[-1]
@@ -64,7 +66,7 @@ class PartitionedParquetIOManager(IOManager):
             partition_str = start.strftime(dt_format)
             return os.path.join(self._base_path,  key, f'dt={partition_str}',f"{key}__{partition_str_long}.parquet")
         else:
-            return os.path.join(self._base_path, f"{key}.pq")
+            return os.path.join(self._base_path, f"{key}")
 
 
 @io_manager(
