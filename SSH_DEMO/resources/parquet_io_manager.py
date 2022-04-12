@@ -57,9 +57,12 @@ class PartitionedParquetIOManager(IOManager):
 
         if context.has_asset_partitions:
             start, end = context.asset_partitions_time_window
-            dt_format = "%Y%m%d%H%M%S"
-            partition_str = start.strftime(dt_format) + "_" + end.strftime(dt_format)
-            return os.path.join(self._base_path, key, f"{partition_str}.pq")
+            dt_format_long = "%Y%m%d%H%M%S"
+            dt_format = "%Y%m%d"
+            partition_str_long = start.strftime(dt_format_long) + "_" + end.strftime(dt_format_long)
+            # is the same (for this dummy example)
+            partition_str = start.strftime(dt_format)
+            return os.path.join(self._base_path,  key, f'dt={partition_str}',f"{key}__{partition_str_long}.parquet")
         else:
             return os.path.join(self._base_path, f"{key}.pq")
 

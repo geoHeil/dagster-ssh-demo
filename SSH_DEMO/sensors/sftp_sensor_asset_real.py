@@ -58,6 +58,7 @@ def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwar
     now_ts = pd.Timestamp.now()  
     dataframe['load_ts'] = now_ts
     remote_file.close()
+    sftp.close()
     #print(dataframe)
     return dataframe
 
@@ -65,7 +66,7 @@ def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwar
     partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "foo.csv"},
     required_resource_keys={"credentials", "ssh"},
-    io_manager_key="parquet_io_manager"
+    #io_manager_key="parquet_io_manager"
 )
 def foo_asset(context):
     path = _source_path_from_context(context)
@@ -81,7 +82,7 @@ def foo_asset(context):
     partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "bar.csv"},
     required_resource_keys={"credentials", "ssh"},
-    io_manager_key="parquet_io_manager"
+    #io_manager_key="parquet_io_manager"
 )
 def bar_asset(context):
     return _shared_helper(context)
@@ -91,7 +92,7 @@ def bar_asset(context):
     partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "baz.csv"},
     required_resource_keys={"credentials", "ssh"},
-    io_manager_key="parquet_io_manager"
+    #io_manager_key="parquet_io_manager"
 )
 def baz_asset(context):
     return _shared_helper(context)
@@ -113,7 +114,7 @@ def _shared_helper(context):
 # and should be triggered from some sensor on any input asset completion
 #############
 
-@asset(io_manager_key="parquet_io_manager")
+@asset#(io_manager_key="parquet_io_manager")
 def combined_asset(context, foo_asset: DataFrame, bar_asset: DataFrame, baz_asset:DataFrame):
     get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
 
