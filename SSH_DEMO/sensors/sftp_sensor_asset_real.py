@@ -136,7 +136,7 @@ def close(sftp, ssh):
     ssh.close()
 
 
-# from SSH_DEMO.repository import resource_defs
+from SSH_DEMO.resources import resource_defs
 
 def make_date_file_sensor_for_asset(asset, asset_group):
     job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
