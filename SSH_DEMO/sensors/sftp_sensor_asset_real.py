@@ -136,7 +136,7 @@ def close(sftp, ssh):
     ssh.close()
 
 
-from SSH_DEMO.resources import resource_defs
+from SSH_DEMO.resources import ssh_resources
 
 def make_date_file_sensor_for_asset(asset, asset_group):
     job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
@@ -144,7 +144,7 @@ def make_date_file_sensor_for_asset(asset, asset_group):
     @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
     def date_file_sensor(context):
         with build_resources(
-            { "credentials": the_credentials, "ssh": my_ssh_resource}, resource_config=resource_defs
+            { "credentials": the_credentials, "ssh": my_ssh_resource}, resource_config=ssh_resources
         ) as resources:
             ssh = resources.ssh
             sftp = ssh.open_sftp()
