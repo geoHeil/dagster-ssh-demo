@@ -7,8 +7,9 @@ from dagster import (
     get_dagster_logger,
     resource,
     build_resources,
-    DefaultSensorStatus, AssetKey, RunRequest
+    DefaultSensorStatus, AssetKey, RunRequest, ExperimentalWarning
 )
+from typing import Dict, Set
 import json
 from dagster import EventRecordsFilter, DagsterEventType
 
@@ -26,6 +27,8 @@ from SSH_DEMO.resources.ssh import my_ssh_resource
 
 DATE_FORMAT = "%Y-%m-%d"
 START_DATE = "2022-01-01"
+
+daily_partitions_def = DailyPartitionsDefinition(start_date=START_DATE)
 
 # path for the directory as served from the SFTP server
 GLOBAL_PREFIX = "upload"
@@ -63,7 +66,7 @@ def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwar
     return dataframe
 
 @asset(
-    partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
+    partitions_def=daily_partitions_def,
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "foo.csv"},
     required_resource_keys={"credentials", "ssh"},
     #io_manager_key="parquet_io_manager"
@@ -79,7 +82,7 @@ def foo_asset(context):
     return df
 
 @asset(
-    partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
+    partitions_def=daily_partitions_def,
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "bar.csv"},
     required_resource_keys={"credentials", "ssh"},
     #io_manager_key="parquet_io_manager"
@@ -89,7 +92,7 @@ def bar_asset(context):
 
 
 @asset(
-    partitions_def=DailyPartitionsDefinition(start_date=START_DATE),
+    partitions_def=daily_partitions_def,
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "baz.csv"},
     required_resource_keys={"credentials", "ssh"},
     #io_manager_key="parquet_io_manager"
@@ -177,56 +180,83 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
     @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
     def multi_asset_join_sensor(context):
         # https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors#multi-asset-sensors
-        cursor_dict = json.loads(context.cursor) if context.cursor else {}
-        foo_cursor = cursor_dict.get("foo_asset")
-        bar_cursor = cursor_dict.get("bar_asset")
-        baz_cursor = cursor_dict.get("baz_asset")
+        # https://github.com/dagster-io/dagster/discussions/7306
 
-        foo_event_records = context.instance.get_event_records(
-            EventRecordsFilter(
-                event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                asset_key=AssetKey("foo_asset"),
-                after_cursor=foo_cursor,
-            ),
-            ascending=False,
-            limit=1,
-        )
-        bar_event_records = context.instance.get_event_records(
-            EventRecordsFilter(
-                event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                asset_key=AssetKey("bar_asset"),
-                after_cursor=bar_cursor,
-            ),
-            ascending=False,
-            limit=1,
-        )
-        baz_event_records = context.instance.get_event_records(
-            EventRecordsFilter(
-                event_type=DagsterEventType.ASSET_MATERIALIZATION,
-                asset_key=AssetKey("baz_asset"),
-                after_cursor=baz_cursor,
-            ),
-            ascending=False,
-            limit=1,
-        )
+        partition_keys = [partition.name for partition in daily_partitions_def.get_partitions()]
+        last_partition_index = int(context.cursor) if context.cursor else -1
+        curr_partition = partition_keys[last_partition_index + 1]
 
-        if not foo_event_records or not bar_event_records or not baz_event_records:
-            return
+        asset_partition_materialized: Dict[AssetKey, bool] = {} # mapping of asset key to dictionary of materialization status by partition
 
-        # make sure we only generate events if both table_foo and table_bar and table_baz have been materialized since
-        # the last evaluation.
-        yield RunRequest(run_key=None)
-
-        # update the sensor cursor by combining the individual event cursors from the two separate
-        # asset event streams
-        context.update_cursor(
-            json.dumps(
-                {
-                    "foo": foo_event_records[0].storage_id,
-                    "bar": bar_event_records[0].storage_id,
-                    "baz": baz_event_records[0].storage_id,
-                }
+        asset_keys = [AssetKey("foo_asset"), AssetKey("bar_asset"), AssetKey("baz_asset")]
+        #event_triggers_for_partition = {}
+        for asset_key in asset_keys:
+            records = context.instance.get_event_records(
+                EventRecordsFilter(
+                    event_type=DagsterEventType.ASSET_MATERIALIZATION,
+                    asset_key=asset_key,
+                    asset_partitions=[curr_partition],
+                )
             )
-        )
+            #event_triggers_for_partition[asset_key + '_' + curr_partition] = records
+            asset_partition_materialized[asset_key] = True if len(records) else False # materialization record exists for partition
+
+        if asset_partition_materialized[AssetKey("foo_asset")] and asset_partition_materialized[AssetKey("bar_asset")] and asset_partition_materialized[AssetKey("baz_asset")]:
+        #    yield job_def.run_request_for_partition(partition_key=curr_partition, run_key=None)
+            yield job_def.run_request(run_key=curr_partition)
+            #yield RunRequest(run_key=curr_partition)
+            context.update_cursor(str(last_partition_index + 1))
+        ##########################
+        # cursor_dict = json.loads(context.cursor) if context.cursor else {}
+        # foo_cursor = cursor_dict.get("foo_asset")
+        # bar_cursor = cursor_dict.get("bar_asset")
+        # baz_cursor = cursor_dict.get("baz_asset")
+
+        # foo_event_records = context.instance.get_event_records(
+        #     EventRecordsFilter(
+        #         event_type=DagsterEventType.ASSET_MATERIALIZATION,
+        #         asset_key=AssetKey("foo_asset"),
+        #         after_cursor=foo_cursor,
+        #     ),
+        #     ascending=False,
+        #     limit=1,
+        # )
+        # bar_event_records = context.instance.get_event_records(
+        #     EventRecordsFilter(
+        #         event_type=DagsterEventType.ASSET_MATERIALIZATION,
+        #         asset_key=AssetKey("bar_asset"),
+        #         after_cursor=bar_cursor,
+        #     ),
+        #     ascending=False,
+        #     limit=1,
+        # )
+        # baz_event_records = context.instance.get_event_records(
+        #     EventRecordsFilter(
+        #         event_type=DagsterEventType.ASSET_MATERIALIZATION,
+        #         asset_key=AssetKey("baz_asset"),
+        #         after_cursor=baz_cursor,
+        #     ),
+        #     ascending=False,
+        #     limit=1,
+        # )
+
+        # if not foo_event_records or not bar_event_records or not baz_event_records:
+        #     return
+
+        # # make sure we only generate events if both table_foo and table_bar and table_baz have been materialized since
+        # # the last evaluation.
+        # yield RunRequest(run_key=None)
+
+        # # update the sensor cursor by combining the individual event cursors from the two separate
+        # # asset event streams
+        # context.update_cursor(
+        #     json.dumps(
+        #         {
+        #             "foo": foo_event_records[0].storage_id,
+        #             "bar": bar_event_records[0].storage_id,
+        #             "baz": baz_event_records[0].storage_id,
+        #         }
+        #     )
+        # )
 
     return multi_asset_join_sensor
