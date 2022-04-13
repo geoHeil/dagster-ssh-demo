@@ -1,5 +1,5 @@
 from dagster.utils import file_relative_path
-DBT_PROJECT_DIR = file_relative_path(__file__, "../ssh_demo_dbt")
+DBT_PROJECT_DIR = file_relative_path(__file__, "../../ssh_demo_dbt")
 DBT_PROFILES_DIR = DBT_PROJECT_DIR + "/config"
 import os
 from dagster_dbt import dbt_cli_resource
@@ -42,10 +42,10 @@ resource_defs_ssh = {
 
 resource_defs = {
     **resource_defs_ssh,
-    "io_manager": local_partitioned_parquet_io_manager,
+    #"io_manager": local_partitioned_parquet_io_manager,
     # "parquet_io_manager": local_partitioned_parquet_io_manager,
-    #"io_manager": duckdb_partitioned_parquet_io_manager.configured(
-    "warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
+    "io_manager": duckdb_partitioned_parquet_io_manager.configured(
+    #"warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
         {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
     ),
     "pyspark": configured_pyspark,

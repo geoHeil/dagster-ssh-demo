@@ -14,13 +14,14 @@ import json
 from dagster import EventRecordsFilter, DagsterEventType
 
 from datetime import datetime, timedelta
-from dagster_pandas import DataFrame
+# from dagster_pandas import DataFrame
 import paramiko
 from pathlib import Path
 import pandas as pd
 from SSH_DEMO.resources.credentials import the_credentials
 from SSH_DEMO.resources.ssh import my_ssh_resource
 from SSH_DEMO.ops.scd2_helpers import deduplicate_scd2
+import pyspark
 
 # TODO: later docker-compose the example
 # TODO: before committing restructure like in the HN job for a nicer user experience
@@ -117,22 +118,44 @@ def _shared_helper(context):
 # TODO: add in 3x assets which are compacted (using SCD2 and pyspark). These are not partitioned 
 # and should be triggered from some sensor on any input asset completion
 #############
+TIME_COLUMN = 'dt'
+ignored_cols = ['event_dt', 'load_ts']
+@asset(
+    partitions_def=daily_partitions_def,
+    metadata={"key": "foo", "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
+    required_resource_keys={"pyspark"},
+)
+def foo_scd2_asset(context, foo_asset:pyspark.sql.DataFrame):
+    return _shared_helper_scd2(context)
 
 @asset(
     partitions_def=daily_partitions_def,
+    metadata={"key": "foo", "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
+    required_resource_keys={"pyspark"},
+)
+def bar_scd2_asset(context, bar_asset:pyspark.sql.DataFrame):
+    return _shared_helper_scd2(context)
+
+@asset(
+    partitions_def=daily_partitions_def,
+    metadata={"key": "foo", "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
 #def baz_scd2_asset(context, baz_asset:DataFrame):
 # TODO: how to 1) schedule after baz_asset partition is done 2) how to not feed the data inline here - but rather the reference to sparks dataframe for the full (all partitions encompassing asset) one 3) how to maintain dagit showing the lineage between the baz_asset and baz_scd2_asset?
 # TODO what is the right IO manager here? spark parquet one? how can I make the existing one more generic?
-def baz_scd2_asset(context, baz_asset:DataFrame):
+# TODO add sensors for this compacted data
+def baz_scd2_asset(context, baz_asset:pyspark.sql.DataFrame):
     return _shared_helper_scd2(context)
 
 
 def _shared_helper_scd2(context):
-    path = _source_path_from_context(context)
-    get_dagster_logger().info(f"Shared processing file '{path}'")
+    #path = _source_path_from_context(context)
+    get_dagster_logger().info(f"Shared processing file '")
 
+    #context.solid_def.output_defs[0].metadata["source_file_base_path"]
+    # path = asset.op.output_defs[0].metadata["source_file_base_path"] + "/" + next_date + "/" + asset.op.output_defs[0].metadata["source_file_name"]            
+    
     #dummy_s_scd2 = deduplicate_scd2(key=["key"], sort_changing_ignored=["ts"], time_column="ts", columns_to_ignore=[], df=dummy_s)
     #dummy_s_scd2.printSchema()
     #dummy_s_scd2.show()
@@ -141,7 +164,7 @@ def _shared_helper_scd2(context):
     return 0
 
 @asset#(io_manager_key="parquet_io_manager")
-def combined_asset(context, foo_asset: DataFrame, bar_asset: DataFrame, baz_asset:DataFrame):
+def combined_asset(context, foo_asset: pd.DataFrame, bar_asset: pd.DataFrame, baz_asset: pd.DataFrame):
     get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
 
     # TODO: before feed the compacted assets

@@ -36,7 +36,7 @@ class PartitionedParquetIOManager(IOManager):
             obj.to_parquet(path=path, index=False)
         elif isinstance(obj, pyspark.sql.DataFrame):
             row_count = obj.count()
-            obj.write.parquet(path=path, mode="overwrite")
+            obj.write.parquet(path=path, mode="overwrite", compression="gzip")
         else:
             raise Exception(f"Outputs of type {type(obj)} not supported.")
         # TODO: include as ASSET Observation/Asset Materialization!
@@ -56,19 +56,22 @@ class PartitionedParquetIOManager(IOManager):
             "for this input either on the argument of the @asset-decorated function."
         )
 
-    def _get_path(self, context: OutputContext):
+    def _get_path(self, context: OutputContext, get_base=False):
         key = context.asset_key.path[-1]
 
-        if context.has_asset_partitions:
-            start, end = context.asset_partitions_time_window
-            dt_format_long = "%Y%m%d%H%M%S"
-            dt_format = "%Y%m%d"
-            partition_str_long = start.strftime(dt_format_long) + "_" + end.strftime(dt_format_long)
-            # is the same (for this dummy example)
-            partition_str = start.strftime(dt_format)
-            return os.path.join(self._base_path,  key, f'dt={partition_str}',f"{key}__{partition_str_long}.parquet")
-        else:
+        if get_base:
             return os.path.join(self._base_path, f"{key}")
+        else:
+            if context.has_asset_partitions:
+                start, end = context.asset_partitions_time_window
+                dt_format_long = "%Y%m%d%H%M%S"
+                dt_format = "%Y%m%d"
+                partition_str_long = start.strftime(dt_format_long) + "_" + end.strftime(dt_format_long)
+                # is the same (for this dummy example)
+                partition_str = start.strftime(dt_format)
+                return os.path.join(self._base_path,  key, f'dt={partition_str}',f"{key}__{partition_str_long}.parquet")
+            else:
+                return os.path.join(self._base_path, f"{key}")
 
 
 @io_manager(

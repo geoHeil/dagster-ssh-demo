@@ -1,3 +1,4 @@
+from operator import ge
 import os
 
 import duckdb
@@ -18,9 +19,12 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
             yield from super().handle_output(context, obj)
             con = self._connect_duckdb(context)
 
-            path = self._get_path(context)
+            path = self._get_path(context, get_base=True)
             if context.has_asset_partitions:
-                to_scan = os.path.join(os.path.dirname(path), "*.pq", "*.parquet")
+                # to_scan = os.path.join(os.path.dirname(path), "*.parquet")
+                
+                # directly run else case: all partitions shouldbe reigstered in duckDB
+                to_scan = os.path.join(path, "*", "*.parquet")
             else:
                 to_scan = path
 
@@ -33,19 +37,20 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
             con.execute("create schema if not exists ssh_demo;")
             con.execute(
                 f"create or replace view {self._table_path(context)} as "
-                f"select * from parquet_scan('{to_scan}');"
+                f"select * from read_parquet('{to_scan}');"
+                #f"select * from parquet_scan('{to_scan}');"
             )
 
     def load_input(self, context):
-        check.invariant(not context.has_asset_partitions, "Can't load partitioned inputs")
+        #check.invariant(not context.has_asset_partitions, "Can't load partitioned inputs")
 
         if context.dagster_type.typing_type == pd.DataFrame:
             con = self._connect_duckdb(context)
             return con.execute(f"SELECT * FROM {self._table_path(context)}").fetchdf()
         elif context.dagster_type.typing_type == pyspark.sql.DataFrame:
             # TODO figure out - or use native get path function from the parquet_io_manager
-            path = self._table_path(context)
-            # path = super.get_path(context)
+            #path = self._table_path(context)
+            path = self._get_path(context, get_base=True)
             print('******************')
             print(path)
             get_dagster_logger().info(f'P: {path}')

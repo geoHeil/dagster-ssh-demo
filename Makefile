@@ -27,7 +27,7 @@ delete_environment: ## delete conda environment for analysis
 
 ## start notebook (jupyter lab)
 notebook:
-	($(CONDA_ACTIVATE) "${PROJECT_NAME}-notebookserver" ; jupyter lab)
+	($(CONDA_ACTIVATE) "${PROJECT_NAME}" ; jupyter lab)
 
 
 #################################################################################

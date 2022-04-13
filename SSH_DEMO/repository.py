@@ -11,10 +11,13 @@ from SSH_DEMO.sensors.sftp_sensor_asset_real import baz_scd2_asset
 
 from SSH_DEMO.resources import resource_defs
 
+from dagster import in_process_executor
+
 asset_group = AssetGroup([foo_asset, bar_asset, baz_asset, combined_asset,
     baz_scd2_asset
 ],
-    resource_defs=resource_defs
+    resource_defs=resource_defs,
+    executor_def=in_process_executor
 )
 
 @repository

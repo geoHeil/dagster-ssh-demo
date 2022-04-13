@@ -2,6 +2,9 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - jupyterlab
+  - nb_conda
+  
   - python=3.9
   - pandas
   - pyarrow
