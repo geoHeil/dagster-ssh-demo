@@ -1,6 +1,6 @@
 import os
 from dagster import (
-    sensor,
+    sensor,check,
     asset,
     DailyPartitionsDefinition,
     SkipReason,
@@ -22,6 +22,7 @@ from SSH_DEMO.resources.credentials import the_credentials
 from SSH_DEMO.resources.ssh import my_ssh_resource
 from SSH_DEMO.ops.scd2_helpers import deduplicate_scd2
 import pyspark
+from pyspark.sql import functions as F
 
 # TODO: later docker-compose the example
 # TODO: before committing restructure like in the HN job for a nicer user experience
@@ -122,23 +123,23 @@ TIME_COLUMN = 'dt'
 ignored_cols = ['event_dt', 'load_ts']
 @asset(
     partitions_def=daily_partitions_def,
-    metadata={"key": "foo", "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
+    metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
 def foo_scd2_asset(context, foo_asset:pyspark.sql.DataFrame):
-    return _shared_helper_scd2(context)
+    return _shared_helper_scd2(context, foo_asset)
 
 @asset(
     partitions_def=daily_partitions_def,
-    metadata={"key": "foo", "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
+    metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
 def bar_scd2_asset(context, bar_asset:pyspark.sql.DataFrame):
-    return _shared_helper_scd2(context)
+    return _shared_helper_scd2(context, bar_asset)
 
 @asset(
     partitions_def=daily_partitions_def,
-    metadata={"key": "foo", "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
+    metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
 #def baz_scd2_asset(context, baz_asset:DataFrame):
@@ -146,22 +147,35 @@ def bar_scd2_asset(context, bar_asset:pyspark.sql.DataFrame):
 # TODO what is the right IO manager here? spark parquet one? how can I make the existing one more generic?
 # TODO add sensors for this compacted data
 def baz_scd2_asset(context, baz_asset:pyspark.sql.DataFrame):
-    return _shared_helper_scd2(context)
+    return _shared_helper_scd2(context, baz_asset)
 
 
-def _shared_helper_scd2(context):
+def _shared_helper_scd2(context, input_asset:pyspark.sql.DataFrame):
+    def _get_scd2_config(context):
+        return (
+            context.solid_def.output_defs[0].metadata["key"],
+            context.solid_def.output_defs[0].metadata["sort_changing_ignored"],
+            context.solid_def.output_defs[0].metadata["time_column"],
+            context.solid_def.output_defs[0].metadata["columns_to_ignore"]
+        )
+    key, sort_changing_ignored, time_column, columns_to_ignore =  _get_scd2_config(context)
     #path = _source_path_from_context(context)
-    get_dagster_logger().info(f"Shared processing file '")
+    #get_dagster_logger().info(f"Shared processing file '")
 
     #context.solid_def.output_defs[0].metadata["source_file_base_path"]
     # path = asset.op.output_defs[0].metadata["source_file_base_path"] + "/" + next_date + "/" + asset.op.output_defs[0].metadata["source_file_name"]            
     
-    #dummy_s_scd2 = deduplicate_scd2(key=["key"], sort_changing_ignored=["ts"], time_column="ts", columns_to_ignore=[], df=dummy_s)
-    #dummy_s_scd2.printSchema()
-    #dummy_s_scd2.show()
+    # fixup data types from yyyyMMdd to actual date type!
+    input_asset = input_asset.withColumn(time_column, F.to_date(F.col(time_column).cast("string"), "yyyyMMdd"))
+    #input_asset.printSchema()
+    #input_asset.show()
+
+    dummy_s_scd2 = deduplicate_scd2(key=key, sort_changing_ignored=sort_changing_ignored, time_column=time_column, columns_to_ignore=columns_to_ignore, df=input_asset)
+    dummy_s_scd2.printSchema()
+    dummy_s_scd2.show()
 
     # TODO implement SCD2 deduplicatio (using spark)
-    return 0
+    return dummy_s_scd2
 
 @asset#(io_manager_key="parquet_io_manager")
 def combined_asset(context, foo_asset: pd.DataFrame, bar_asset: pd.DataFrame, baz_asset: pd.DataFrame):
