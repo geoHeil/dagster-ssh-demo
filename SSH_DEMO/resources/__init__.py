@@ -44,16 +44,16 @@ ssh_resources = {
 
 resource_defs_other = {
     # TODO: why is this not working/pushed everywhere?
-    # "credentials": the_credentials.configured({
-    #             'username': 'foo',
-    #             'password': 'bar'
-    #     }),
-    # "ssh": my_ssh_resource.configured({
-    #         "remote_host": "localhost",
-    #         "remote_port": 2222
-    #     })
-    "credentials": the_credentials.configured(ssh_resources['credentials']['config']),
-    "ssh": my_ssh_resource.configured(ssh_resources['ssh']['config']),
+    "credentials": the_credentials.configured({
+                 'username': 'foo',
+                 'password': 'bar'
+         }),
+     "ssh": my_ssh_resource.configured({
+             "remote_host": "localhost",
+             "remote_port": 2222
+         }),
+    #"credentials": the_credentials.configured(ssh_resources['credentials']['config']),
+    #"ssh": my_ssh_resource.configured(ssh_resources['ssh']['config']),
     "io_manager": local_partitioned_parquet_io_manager,
     #"parquet_io_manager": local_partitioned_parquet_io_manager,
     "warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
