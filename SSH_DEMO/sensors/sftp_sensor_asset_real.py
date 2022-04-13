@@ -117,6 +117,23 @@ def _shared_helper(context):
 # and should be triggered from some sensor on any input asset completion
 #############
 
+@asset(
+    partitions_def=daily_partitions_def,
+    required_resource_keys={"pyspark"},
+)
+#def baz_scd2_asset(context, baz_asset:DataFrame):
+# TODO: how to 1) schedule after baz_asset partition is done 2) how to not feed the data inline here - but rather the reference to sparks dataframe for the full (all partitions encompassing asset) one 3) how to maintain dagit showing the lineage between the baz_asset and baz_scd2_asset?
+def baz_scd2_asset(context, baz_asset:DataFrame):
+    return _shared_helper_scd2(context)
+
+
+def _shared_helper_scd2(context):
+    path = _source_path_from_context(context)
+    get_dagster_logger().info(f"Shared processing file '{path}'")
+
+    # TODO implement SCD2 deduplicatio (using spark)
+    return 0
+
 @asset#(io_manager_key="parquet_io_manager")
 def combined_asset(context, foo_asset: DataFrame, bar_asset: DataFrame, baz_asset:DataFrame):
     get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
@@ -140,17 +157,14 @@ def close(sftp, ssh):
     ssh.close()
 
 
-# from SSH_DEMO.resources import ssh_resources
-from SSH_DEMO.resources import resource_defs_other
+from SSH_DEMO.resources import resource_defs_ssh
 
 def make_date_file_sensor_for_asset(asset, asset_group):
     job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
 
     @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
     def date_file_sensor(context):
-        with build_resources(
-            { "credentials": the_credentials, "ssh": my_ssh_resource}, resource_config=resource_defs_other#ssh_resources
-        ) as resources:
+        with build_resources(resource_defs_ssh) as resources:
             ssh = resources.ssh
             sftp = ssh.open_sftp()
 
@@ -204,6 +218,7 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
 
         if asset_partition_materialized[AssetKey("foo_asset")] and asset_partition_materialized[AssetKey("bar_asset")] and asset_partition_materialized[AssetKey("baz_asset")]:
             # yield job_def.run_request_for_partition(partition_key=curr_partition, run_key=None)
-            yield job_def.run_request(run_key=curr_partition)
+            #yield RunRequest(run_key=curr_partition)
+            yield RunRequest(run_key=None)
             context.update_cursor(str(last_partition_index + 1))
     return multi_asset_join_sensor

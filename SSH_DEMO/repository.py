@@ -5,10 +5,15 @@ warnings.filterwarnings("ignore", category=dagster.ExperimentalWarning)
 
 from dagster import repository, AssetGroup
 
-from SSH_DEMO.sensors.sftp_sensor_asset_real import foo_asset, combined_asset, bar_asset, baz_asset, make_date_file_sensor_for_asset, make_multi_join_sensor_for_asset#, resource_defs
+from SSH_DEMO.sensors.sftp_sensor_asset_real import foo_asset, combined_asset, bar_asset, baz_asset, make_date_file_sensor_for_asset, make_multi_join_sensor_for_asset
+
+from SSH_DEMO.sensors.sftp_sensor_asset_real import baz_scd2_asset
+
 from SSH_DEMO.resources import resource_defs
 
-asset_group = AssetGroup([foo_asset, bar_asset, baz_asset, combined_asset],
+asset_group = AssetGroup([foo_asset, bar_asset, baz_asset, combined_asset,
+    baz_scd2_asset
+],
     resource_defs=resource_defs
 )
 
