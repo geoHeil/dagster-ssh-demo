@@ -20,6 +20,7 @@ from pathlib import Path
 import pandas as pd
 from SSH_DEMO.resources.credentials import the_credentials
 from SSH_DEMO.resources.ssh import my_ssh_resource
+from SSH_DEMO.ops.scd2_helpers import deduplicate_scd2
 
 # TODO: later docker-compose the example
 # TODO: before committing restructure like in the HN job for a nicer user experience
@@ -123,6 +124,7 @@ def _shared_helper(context):
 )
 #def baz_scd2_asset(context, baz_asset:DataFrame):
 # TODO: how to 1) schedule after baz_asset partition is done 2) how to not feed the data inline here - but rather the reference to sparks dataframe for the full (all partitions encompassing asset) one 3) how to maintain dagit showing the lineage between the baz_asset and baz_scd2_asset?
+# TODO what is the right IO manager here? spark parquet one? how can I make the existing one more generic?
 def baz_scd2_asset(context, baz_asset:DataFrame):
     return _shared_helper_scd2(context)
 
@@ -130,6 +132,10 @@ def baz_scd2_asset(context, baz_asset:DataFrame):
 def _shared_helper_scd2(context):
     path = _source_path_from_context(context)
     get_dagster_logger().info(f"Shared processing file '{path}'")
+
+    #dummy_s_scd2 = deduplicate_scd2(key=["key"], sort_changing_ignored=["ts"], time_column="ts", columns_to_ignore=[], df=dummy_s)
+    #dummy_s_scd2.printSchema()
+    #dummy_s_scd2.show()
 
     # TODO implement SCD2 deduplicatio (using spark)
     return 0

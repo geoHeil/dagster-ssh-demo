@@ -14,7 +14,17 @@ dbt_local_resource = dbt_cli_resource.configured(
 configured_pyspark = pyspark_resource.configured(
     {
         "spark_conf": {
-            "spark.driver.memory": "4G"
+            "spark.driver.memory": "8G",
+            "spark.sql.session.timeZone": "UTC",
+            "spark.driver.extraJavaOptions": "-Duser.timezone=UTC",
+            "spark.sql.adaptive.enabled": "true",
+            "spark.sql.adaptive.skewedJoin.enabled": "true",
+            "spark.sql.cbo.enabled": "true",
+            "spark.sql.cbo.joinReorder.enabled": "true",
+            "spark.sql.cbo.starSchemaDetection": "true",
+            "spark.sql.autoBroadcastJoinThreshold": "200MB",
+            "spark.sql.statistics.histogram.enabled": "true",
+            "spark.sql.execution.arrow.pyspark.enabled": "true"
         }
     }
 )
@@ -34,6 +44,7 @@ resource_defs = {
     **resource_defs_ssh,
     "io_manager": local_partitioned_parquet_io_manager,
     # "parquet_io_manager": local_partitioned_parquet_io_manager,
+    #"io_manager": duckdb_partitioned_parquet_io_manager.configured(
     "warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
         {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
     ),

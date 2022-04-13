@@ -39,20 +39,22 @@ class PartitionedParquetIOManager(IOManager):
             obj.write.parquet(path=path, mode="overwrite")
         else:
             raise Exception(f"Outputs of type {type(obj)} not supported.")
+        # TODO: include as ASSET Observation/Asset Materialization!
         yield MetadataEntry.int(value=row_count, label="row_count")
         yield MetadataEntry.path(path=path, label="path")
 
     def load_input(self, context) -> Union[pyspark.sql.DataFrame, str]:
         path = self._get_path(context.upstream_output)
-        #if context.dagster_type.typing_type == pyspark.sql.DataFrame:
+        if context.dagster_type.typing_type == pyspark.sql.DataFrame:
             # return pyspark dataframe
-        #    return context.resources.pyspark.spark_session.read.parquet(path)
-        return pd.read_parquet(path)
+            return context.resources.pyspark.spark_session.read.parquet(path)
+        elif context.dagster_type.typing_type == pandas.DataFrame:
+            return pd.read_parquet(path)
 
-        #return check.failed(
-        #    f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
-        #    "for this input either on the argument of the @asset-decorated function."
-        #)
+        return check.failed(
+            f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
+            "for this input either on the argument of the @asset-decorated function."
+        )
 
     def _get_path(self, context: OutputContext):
         key = context.asset_key.path[-1]
@@ -77,8 +79,6 @@ def local_partitioned_parquet_io_manager(init_context):
     import pathlib
     out_path = pathlib.Path() / "warehouse_location"
     out_path.mkdir(parents=True, exist_ok=True)
-    # TODO parent maybe needed
-    #out_path.parent.resolve()
     
     return PartitionedParquetIOManager(
         base_path=init_context.resource_config.get("base_path", str(out_path.resolve()))

@@ -3,8 +3,9 @@ import os
 import duckdb
 import pandas as pd
 
-from dagster import Field, check, io_manager
+from dagster import Field, check, get_dagster_logger, io_manager
 from dagster.seven.temp_dir import get_system_temp_directory
+import pyspark
 
 from .parquet_io_manager import PartitionedParquetIOManager
 
@@ -22,6 +23,13 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
                 to_scan = os.path.join(os.path.dirname(path), "*.pq", "*.parquet")
             else:
                 to_scan = path
+
+
+            print('********')
+            print(to_scan)
+            get_dagster_logger().info(f'scanning: {to_scan}')
+            # TODO account for hive-based partitioning!
+            print('********')
             con.execute("create schema if not exists ssh_demo;")
             con.execute(
                 f"create or replace view {self._table_path(context)} as "
@@ -34,6 +42,15 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
         if context.dagster_type.typing_type == pd.DataFrame:
             con = self._connect_duckdb(context)
             return con.execute(f"SELECT * FROM {self._table_path(context)}").fetchdf()
+        elif context.dagster_type.typing_type == pyspark.sql.DataFrame:
+            # TODO figure out - or use native get path function from the parquet_io_manager
+            path = self._table_path(context)
+            # path = super.get_path(context)
+            print('******************')
+            print(path)
+            get_dagster_logger().info(f'P: {path}')
+            print('******************')
+            return context.resources.pyspark.spark_session.read.parquet(path)
 
         check.failed(
             f"Inputs of type {context.dagster_type} not supported. Please specify a valid type "
@@ -55,12 +72,7 @@ def duckdb_partitioned_parquet_io_manager(init_context):
     import pathlib
     out_path = pathlib.Path() / "warehouse_location"
     out_path.mkdir(parents=True, exist_ok=True)
-    # TODO parent maybe needed
-    #out_path.parent.resolve()
     
     return DuckDBPartitionedParquetIOManager(
         base_path=init_context.resource_config.get("base_path", str(out_path.resolve()))
     )
-    #return DuckDBPartitionedParquetIOManager(
-    #    base_path=init_context.resource_config.get("base_path", get_system_temp_directory())
-    #)
