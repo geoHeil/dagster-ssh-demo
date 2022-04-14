@@ -17,7 +17,7 @@ asset_group = AssetGroup([foo_asset, bar_asset, baz_asset, combined_asset,
     baz_scd2_asset
 ],
     resource_defs=resource_defs,
-    executor_def=in_process_executor
+    #executor_def=in_process_executor
 )
 
 @repository

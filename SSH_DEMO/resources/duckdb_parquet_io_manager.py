@@ -9,6 +9,8 @@ from dagster.seven.temp_dir import get_system_temp_directory
 import pyspark
 
 from .parquet_io_manager import PartitionedParquetIOManager
+#from filelock import FileLock
+from SSH_DEMO.resources.locking_utils import FileLock
 
 
 class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
@@ -66,7 +68,14 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
         return f"ssh_demo.{context.asset_key.path[-1]}"
 
     def _connect_duckdb(self, context):
-        return duckdb.connect(database=context.resource_config["duckdb_path"], read_only=False)
+        ddb_path = context.resource_config["duckdb_path"]
+        # https://stackoverflow.com/questions/489861/locking-a-file-in-python
+        # https://dagster.slack.com/archives/C01U954MEER/p1649886081687719?thread_ts=1649863868.798109&cid=C01U954MEER
+        # 
+        with FileLock(ddb_path):
+            # work with the file as it is now locked
+            get_dagster_logger().info("Lock acquired.")
+            return duckdb.connect(database=ddb_path, read_only=False)
 
 
 @io_manager(
