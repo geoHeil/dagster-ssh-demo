@@ -40,14 +40,19 @@ resource_defs_ssh = {
     "ssh": my_ssh_resource.configured({"remote_host": "localhost", "remote_port": 2222}),
 }
 
+resource_defs_pyspark = {
+    "pyspark": configured_pyspark,
+}
+
 resource_defs = {
     **resource_defs_ssh,
+    **resource_defs_pyspark,
     #"io_manager": local_partitioned_parquet_io_manager,
     # "parquet_io_manager": local_partitioned_parquet_io_manager,
     "io_manager": duckdb_partitioned_parquet_io_manager.configured(
     #"warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
         {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
     ),
-    "pyspark": configured_pyspark,
+    
     "dbt": dbt_local_resource,
 }

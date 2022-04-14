@@ -258,6 +258,7 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
             )
             asset_partition_materialized[asset_key] = True if len(records) else False # materialization record exists for partition
 
+        # TODO fix this and only trigger when also the intermediate cleaned ones are done!!!
         if asset_partition_materialized[AssetKey("foo_asset")] and asset_partition_materialized[AssetKey("bar_asset")] and asset_partition_materialized[AssetKey("baz_asset")]:
             # yield job_def.run_request_for_partition(partition_key=curr_partition, run_key=None)
             #yield RunRequest(run_key=curr_partition)
@@ -267,22 +268,25 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
 
 
 from dagster import AssetsDefinition
+from SSH_DEMO.resources import resource_defs_pyspark
 def make_single_sensor_for_asset(asset, triggering_asset:asset, asset_group:AssetGroup):
     job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
 
     # TODO: is this assumption valid that asset_key is identical to op.name?
     @asset_sensor(asset_key=AssetKey(triggering_asset.op.name), job=job_def, default_status=DefaultSensorStatus.RUNNING)
     def my_asset_sensor(context, asset_event):
-        yield RunRequest(
-            run_key=context.cursor,
-            #run_config={}
-                #"ops": {
-                #    "read_materialization": {
-                #        "config": {
-                #            "asset_key": asset_event.dagster_event.asset_key.path,
-                #        }
-                #    }
-                #}
-            #},
-        )
+        with build_resources(resource_defs_pyspark['pyspark']) as pyspark:
+            #  Unknown resource `pyspark`. Specify `pyspark` as a required resource on the compute / config function that accessed it
+            yield RunRequest(
+                run_key=context.cursor,
+                #run_config={}
+                    #"ops": {
+                    #    "read_materialization": {
+                    #        "config": {
+                    #            "asset_key": asset_event.dagster_event.asset_key.path,
+                    #        }
+                    #    }
+                    #}
+                #},
+            )
     return my_asset_sensor
