@@ -1,7 +1,8 @@
 import os
 from dagster import (
-    sensor,check,
+    AssetGroup, sensor,check,
     asset,
+    asset_sensor,
     DailyPartitionsDefinition,
     SkipReason,
     get_dagster_logger,
@@ -27,6 +28,7 @@ from pyspark.sql import functions as F
 # TODO: later docker-compose the example
 # TODO: before committing restructure like in the HN job for a nicer user experience
 # TODO add some processing logic here (SCD2 via pyspark)
+# TODO: how to put more assets in a single job whilst still having sensors for auto-updating? Is it needed to have a manual sensor for each?
 
 DATE_FORMAT = "%Y-%m-%d"
 START_DATE = "2022-01-01"
@@ -122,7 +124,7 @@ def _shared_helper(context):
 TIME_COLUMN = 'dt'
 ignored_cols = ['event_dt', 'load_ts']
 @asset(
-    partitions_def=daily_partitions_def,
+    #partitions_def=daily_partitions_def,
     metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
@@ -130,7 +132,7 @@ def foo_scd2_asset(context, foo_asset:pyspark.sql.DataFrame):
     return _shared_helper_scd2(context, foo_asset)
 
 @asset(
-    partitions_def=daily_partitions_def,
+    #partitions_def=daily_partitions_def,
     metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
@@ -138,14 +140,11 @@ def bar_scd2_asset(context, bar_asset:pyspark.sql.DataFrame):
     return _shared_helper_scd2(context, bar_asset)
 
 @asset(
-    partitions_def=daily_partitions_def,
+    #partitions_def=daily_partitions_def,
     metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
 )
-#def baz_scd2_asset(context, baz_asset:DataFrame):
-# TODO: how to 1) schedule after baz_asset partition is done 2) how to not feed the data inline here - but rather the reference to sparks dataframe for the full (all partitions encompassing asset) one 3) how to maintain dagit showing the lineage between the baz_asset and baz_scd2_asset?
-# TODO what is the right IO manager here? spark parquet one? how can I make the existing one more generic?
-# TODO add sensors for this compacted data
+# TODO: how to 1) schedule after baz_asset partition is done 
 def baz_scd2_asset(context, baz_asset:pyspark.sql.DataFrame):
     return _shared_helper_scd2(context, baz_asset)
 
@@ -265,3 +264,25 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
             yield RunRequest(run_key=None)
             context.update_cursor(str(last_partition_index + 1))
     return multi_asset_join_sensor
+
+
+from dagster import AssetsDefinition
+def make_single_sensor_for_asset(asset, triggering_asset:asset, asset_group:AssetGroup):
+    job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
+
+    # TODO: is this assumption valid that asset_key is identical to op.name?
+    @asset_sensor(asset_key=AssetKey(triggering_asset.op.name), job=job_def, default_status=DefaultSensorStatus.RUNNING)
+    def my_asset_sensor(context, asset_event):
+        yield RunRequest(
+            run_key=context.cursor,
+            #run_config={}
+                #"ops": {
+                #    "read_materialization": {
+                #        "config": {
+                #            "asset_key": asset_event.dagster_event.asset_key.path,
+                #        }
+                #    }
+                #}
+            #},
+        )
+    return my_asset_sensor

@@ -22,13 +22,25 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
             con = self._connect_duckdb(context)
 
             path = self._get_path(context, get_base=True)
+            get_dagster_logger().info(f'partitions: {context.has_asset_partitions}, type: {context.dagster_type.typing_type} ***')
             if context.has_asset_partitions:
                 # to_scan = os.path.join(os.path.dirname(path), "*.parquet")
                 
                 # directly run else case: all partitions shouldbe reigstered in duckDB
                 to_scan = os.path.join(path, "*", "*.parquet")
             else:
-                to_scan = path
+                # we fact two choices here: 1) it is a pandas dataframe (a single file is written)
+                # 2) it is a spark dataframe and a whole directory is created
+                # However, (3) if this is the last point of the IO manager the output might be any
+                
+                if context.dagster_type.typing_type == pd.DataFrame:
+                    to_scan = path
+                else:
+                    #if context.dagster_type.typing_type == pyspark.sql.DataFrame:
+                    # we get a whole folder back!
+                    to_scan = os.path.join(path, "*.parquet")
+                #else:
+                #    to_scan = path
 
 
             print('********')
