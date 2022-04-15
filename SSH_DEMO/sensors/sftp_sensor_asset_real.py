@@ -158,22 +158,12 @@ def _shared_helper_scd2(context, input_asset:pyspark.sql.DataFrame):
             context.solid_def.output_defs[0].metadata["columns_to_ignore"]
         )
     key, sort_changing_ignored, time_column, columns_to_ignore =  _get_scd2_config(context)
-    #path = _source_path_from_context(context)
-    #get_dagster_logger().info(f"Shared processing file '")
 
-    #context.solid_def.output_defs[0].metadata["source_file_base_path"]
-    # path = asset.op.output_defs[0].metadata["source_file_base_path"] + "/" + next_date + "/" + asset.op.output_defs[0].metadata["source_file_name"]            
-    
     # fixup data types from yyyyMMdd to actual date type!
     input_asset = input_asset.withColumn(time_column, F.to_date(F.col(time_column).cast("string"), "yyyyMMdd"))
-    #input_asset.printSchema()
-    #input_asset.show()
-
     dummy_s_scd2 = deduplicate_scd2(key=key, sort_changing_ignored=sort_changing_ignored, time_column=time_column, columns_to_ignore=columns_to_ignore, df=input_asset)
     dummy_s_scd2.printSchema()
     dummy_s_scd2.show()
-
-    # TODO implement SCD2 deduplicatio (using spark)
     return dummy_s_scd2
 
 @asset#(io_manager_key="parquet_io_manager")
@@ -232,6 +222,11 @@ def make_date_file_sensor_for_asset(asset, asset_group):
 
 
 def make_multi_join_sensor_for_asset(asset, asset_group):
+    """
+    For the 3 input assets foo, bar, baz (and their respective daily partition)
+    AND their derived <<xx>>_scd2 compacted representation
+    all need to be completed before triggering the downstream (combined) asset.
+    """
     job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
 
     @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
@@ -266,27 +261,17 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
             context.update_cursor(str(last_partition_index + 1))
     return multi_asset_join_sensor
 
-
-from dagster import AssetsDefinition
-from SSH_DEMO.resources import resource_defs_pyspark
 def make_single_sensor_for_asset(asset, triggering_asset:asset, asset_group:AssetGroup):
     job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
 
     # TODO: is this assumption valid that asset_key is identical to op.name?
+    # https://dagster.slack.com/archives/C01U954MEER/p1650011014029099
     @asset_sensor(asset_key=AssetKey(triggering_asset.op.name), job=job_def, default_status=DefaultSensorStatus.RUNNING)
     def my_asset_sensor(context, asset_event):
-        with build_resources(resource_defs_pyspark['pyspark']) as pyspark:
-            #  Unknown resource `pyspark`. Specify `pyspark` as a required resource on the compute / config function that accessed it
-            yield RunRequest(
-                run_key=context.cursor,
-                #run_config={}
-                    #"ops": {
-                    #    "read_materialization": {
-                    #        "config": {
-                    #            "asset_key": asset_event.dagster_event.asset_key.path,
-                    #        }
-                    #    }
-                    #}
-                #},
-            )
+        yield RunRequest(
+            run_key=context.cursor,
+        )
     return my_asset_sensor
+
+
+# pip install -e python_modules/dagster
