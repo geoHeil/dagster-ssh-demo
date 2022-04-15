@@ -242,19 +242,43 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
 
         asset_partition_materialized: Dict[AssetKey, bool] = {} # mapping of asset key to dictionary of materialization status by partition
 
-        asset_keys = [AssetKey("foo_asset"), AssetKey("bar_asset"), AssetKey("baz_asset")]
-        for asset_key in asset_keys:
-            records = context.instance.get_event_records(
+        #asset_keys_partitioned = [AssetKey("foo_asset"), AssetKey("bar_asset"), AssetKey("baz_asset")]
+        #asset_keys_non_partitioned = [#AssetKey("foo_scd2_asset"), AssetKey("bar_scd2_asset"),
+        # AssetKey("baz_scd2_asset")]
+        
+        asset_keys = [(AssetKey("foo_asset"), True), (AssetKey("bar_asset"), True), (AssetKey("baz_asset"), True),
+        #(AssetKey("foo_scd2_asset"), False), (AssetKey("bar_scd2_asset"), False),
+        (AssetKey("baz_scd2_asset"), False)
+        ]
+        # TODO: is there any better way to get this to work? This seems really clumnsy?
+        # https://dagster.slack.com/archives/C01U954MEER/p1650011335134819?thread_ts=1649909251.959589&cid=C01U954MEER
+        # How to tie the two separate materialization events together? Perhaps with additional metadata?
+        for asset_key, is_partitioned in asset_keys:
+            if is_partitioned:
+                records = context.instance.get_event_records(
+                    EventRecordsFilter(
+                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
+                        asset_key=asset_key,
+                        asset_partitions=[curr_partition],
+                    )
+                )
+            else:
+                records = context.instance.get_event_records(
                 EventRecordsFilter(
                     event_type=DagsterEventType.ASSET_MATERIALIZATION,
                     asset_key=asset_key,
-                    asset_partitions=[curr_partition],
+                    # this is an unpartitioned asset
+                    # how can the previous and this materialization be stringed together?
+                    # must some additional metadata be used somehow?
+                    # asset_partitions=[curr_partition],
                 )
             )
             asset_partition_materialized[asset_key] = True if len(records) else False # materialization record exists for partition
 
         # TODO fix this and only trigger when also the intermediate cleaned ones are done!!!
-        if asset_partition_materialized[AssetKey("foo_asset")] and asset_partition_materialized[AssetKey("bar_asset")] and asset_partition_materialized[AssetKey("baz_asset")]:
+        if (asset_partition_materialized[AssetKey("foo_asset")] and asset_partition_materialized[AssetKey("bar_asset")] and asset_partition_materialized[AssetKey("baz_asset")] and asset_partition_materialized[AssetKey("baz_scd2_asset")]):
+        # and asset_partition_materialized[AssetKey("foo_scd2_asset")] and asset_partition_materialized[AssetKey("bar_scd2_asset")
+        #]:
             # yield job_def.run_request_for_partition(partition_key=curr_partition, run_key=None)
             #yield RunRequest(run_key=curr_partition)
             yield RunRequest(run_key=None)
