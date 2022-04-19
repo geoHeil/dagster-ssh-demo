@@ -166,8 +166,8 @@ def _shared_helper_scd2(context, input_asset:pyspark.sql.DataFrame):
     dummy_s_scd2.show()
     return dummy_s_scd2
 
-@asset#(io_manager_key="parquet_io_manager")
-def combined_asset(context, foo_asset: pd.DataFrame, bar_asset: pd.DataFrame, baz_asset: pd.DataFrame):
+@asset(required_resource_keys={"pyspark"},)#(io_manager_key="parquet_io_manager")
+def combined_asset(context, foo_scd2_asset:pyspark.sql.DataFrame, bar_scd2_asset: pyspark.sql.DataFrame, baz_scd2_asset: pyspark.sql.DataFrame):
     get_dagster_logger().info(f"updating combined asset (globally for all partitions) once all 3 input assets for a specific partition_key (date) are done")
 
     # TODO: before feed the compacted assets
@@ -240,6 +240,21 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
         last_partition_index = int(context.cursor) if context.cursor else -1
         curr_partition = partition_keys[last_partition_index + 1]
 
+        ######################################
+        # https://dagster.slack.com/archives/C01U954MEER/p1650057373811599?thread_ts=1649909251.959589&cid=C01U954MEER 
+        #think that putting metadata on the AssetMaterializations with the latest partition that they include would be the right approach.  Currently, this is a little complex, but doable.
+        #First step: in the sensor for a1_cleaned, put a tag on the run with the partition for a1:
+        #yield RunRequest(tags={"latest_partition": ...})
+        
+        #Then, in your IOManager, grab that tag and add it as metadata that will show up on the materialization for a1_cleaned:
+        #partition_tag_value = context.step_context._plan_data.pipeline_run.tags["latest_partition"]
+        #context.add_output_metadata({"latest_partition": })
+        
+        #Then, in the sensor for combined, you can access the metadata on a1_cleaned with something like the following:
+        #materialization = record.event_log_entry.dagster_event.event_specific_data.materialization
+        #latest_partition = [me for me in materialization.metadata_entries if me.label == "latest_partition"][0].entry_data.text
+        ######################################
+
         asset_partition_materialized: Dict[AssetKey, bool] = {} # mapping of asset key to dictionary of materialization status by partition
 
         #asset_keys_partitioned = [AssetKey("foo_asset"), AssetKey("bar_asset"), AssetKey("baz_asset")]
@@ -271,7 +286,14 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
                     # how can the previous and this materialization be stringed together?
                     # must some additional metadata be used somehow?
                     # asset_partitions=[curr_partition],
+                    
                 )
+                # how can this perhaps become a filter above? or am I thinking too complex
+                # for all materialization events
+                    # for all metadata entries obtained via:
+                        # records[0]event_log_entry.dagster_event.step_materialization_data.materialization.metadata_entries
+                        # filter if EventMetadataEntry with label: curr_partition contains the value curr_partition
+                        # TODO: this materialization metadata needs to be written out additionally - how to achieve this
             )
             asset_partition_materialized[asset_key] = True if len(records) else False # materialization record exists for partition
 
@@ -290,10 +312,24 @@ def make_single_sensor_for_asset(asset, triggering_asset:asset, asset_group:Asse
 
     # TODO: is this assumption valid that asset_key is identical to op.name?
     # https://dagster.slack.com/archives/C01U954MEER/p1650011014029099
-    @asset_sensor(asset_key=AssetKey(triggering_asset.op.name), job=job_def, default_status=DefaultSensorStatus.RUNNING)
+    # https://dagster.slack.com/archives/C01U954MEER/p1650037529532929?thread_ts=1650011014.029099&cid=C01U954MEER
+    # I've got an in-progress PR that adds an asset_key property. Until that lands, you can do this somewhat verbose thing: next(iter(my_asset.asset_keys))
+    @asset_sensor(name=asset.op.name + "_sensor", asset_key=AssetKey(triggering_asset.op.name), job=job_def, default_status=DefaultSensorStatus.RUNNING)
     def my_asset_sensor(context, asset_event):
+        records = context.instance.get_event_records(
+                    EventRecordsFilter(
+                        event_type=DagsterEventType.ASSET_MATERIALIZATION,
+                        asset_key=triggering_asset.op.name, # TODO this is a hack - see before
+                        #asset_partitions=[curr_partition], # do not know - need to get it somewhere? But I do not want to listen - rather want to pass it down from the previous step. One could pass after_timestamp for better performance
+                    )
+                )
+        # iterate all records
+        #records[0].event_log_entry.dagster_event.step_materialization_data.materialization.metadata_entries
+        # get partition entry and do something with it
         yield RunRequest(
             run_key=context.cursor,
+            # TODO where to get this from from triggering_asset? Do I need to filter DagsterEventType.ASSET_MATERIALIZATION and get the partiiton key manually? This seems quite cumbersome
+            #tags={"latest_partition": ...}
         )
     return my_asset_sensor
 
