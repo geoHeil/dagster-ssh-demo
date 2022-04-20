@@ -36,7 +36,6 @@ docker-compose up
   - can the listening be improved (pushed down)?
 - optional resources / lazy instantiation https://dagster.slack.com/archives/C01U954MEER/p1650448663629669
   - same goes for DBT using duckDB
-- specify output type of asset https://dagster.slack.com/archives/C01U954MEER/p1650457944030399 (especially when there is no downstream consumer yet
 
 
 Further topics:
@@ -47,8 +46,9 @@ Further topics:
   - tags for compute_kind (missing in asset view)
   - upstream asset changed stale (in asset view)
 
-open MRs:
+open MRs/issues:
  - direct asset_key access https://github.com/dagster-io/dagster/pull/7395 (TODO fix workaround)
+ - compute_kind metadata missing https://github.com/dagster-io/dagster/issues/7503
 
 
 ## installing a custom dagster version:
