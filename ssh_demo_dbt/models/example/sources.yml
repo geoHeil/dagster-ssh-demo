@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: ssh_demo
+    tables:
+      - name: baz_asset
+      - name: combined_asset

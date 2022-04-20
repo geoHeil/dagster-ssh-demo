@@ -8,7 +8,8 @@ from dagster_pyspark import pyspark_resource
 #duck_db_path = file_relative_path(__file__, "duckdb.local.duckdb")
 dbt_local_resource = dbt_cli_resource.configured(
     # "vars": {"duckdb_path": duck_db_path}
-    {"profiles_dir": DBT_PROFILES_DIR, "project_dir": DBT_PROJECT_DIR, "target": "local"}
+    # , "target": "local"
+    {"profiles_dir": DBT_PROFILES_DIR, "project_dir": DBT_PROJECT_DIR}
 )
 
 configured_pyspark = pyspark_resource.configured(

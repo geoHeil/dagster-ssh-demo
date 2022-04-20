@@ -1,0 +1,7 @@
+ssh_demo_dbt:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: ssh_demo.duckdb
+      schema: ssh_demo

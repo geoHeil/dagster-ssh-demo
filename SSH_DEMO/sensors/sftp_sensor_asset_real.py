@@ -71,6 +71,7 @@ def read_csv_sftp_direct(sftp, remotepath: str, partition_key:str, *args, **kwar
     return dataframe
 
 @asset(
+    compute_kind="python",
     partitions_def=daily_partitions_def,
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "foo.csv"},
     required_resource_keys={"credentials", "ssh"},
@@ -87,6 +88,7 @@ def foo_asset(context):
     return df
 
 @asset(
+    compute_kind="python",
     partitions_def=daily_partitions_def,
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "bar.csv"},
     required_resource_keys={"credentials", "ssh"},
@@ -97,6 +99,7 @@ def bar_asset(context):
 
 
 @asset(
+    compute_kind="python",
     partitions_def=daily_partitions_def,
     metadata={"source_file_base_path": GLOBAL_PREFIX, "source_file_name": "baz.csv"},
     required_resource_keys={"credentials", "ssh"},
@@ -124,6 +127,7 @@ def _shared_helper(context):
 TIME_COLUMN = 'dt'
 ignored_cols = ['event_dt', 'load_ts']
 @asset(
+    compute_kind="spark",
     #partitions_def=daily_partitions_def,
     metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
@@ -132,6 +136,7 @@ def foo_scd2_asset(context, foo_asset:pyspark.sql.DataFrame):
     return _shared_helper_scd2(context, foo_asset)
 
 @asset(
+    compute_kind="spark",
     #partitions_def=daily_partitions_def,
     metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
@@ -140,6 +145,7 @@ def bar_scd2_asset(context, bar_asset:pyspark.sql.DataFrame):
     return _shared_helper_scd2(context, bar_asset)
 
 @asset(
+    compute_kind="spark",
     #partitions_def=daily_partitions_def,
     metadata={"key": ["foo"], "sort_changing_ignored": [TIME_COLUMN], "time_column":TIME_COLUMN, "columns_to_ignore":ignored_cols},
     required_resource_keys={"pyspark"},
@@ -241,6 +247,9 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
         curr_partition = partition_keys[last_partition_index + 1]
 
         ######################################
+        # (omitted step 0):
+        # emit the partition metadata from the upstream asset
+
         # https://dagster.slack.com/archives/C01U954MEER/p1650057373811599?thread_ts=1649909251.959589&cid=C01U954MEER 
         #think that putting metadata on the AssetMaterializations with the latest partition that they include would be the right approach.  Currently, this is a little complex, but doable.
         #First step: in the sensor for a1_cleaned, put a tag on the run with the partition for a1:
@@ -326,10 +335,19 @@ def make_single_sensor_for_asset(asset, triggering_asset:asset, asset_group:Asse
         # iterate all records
         #records[0].event_log_entry.dagster_event.step_materialization_data.materialization.metadata_entries
         # get partition entry and do something with it
+        # TODO: can we somehow get the most recent records guaranteed? (so I do not need to loop all? Could the cursor be used? (i.e. the thing which anyways suppleid the run key))
+        # WARNING: in case of out-of-order-execution (backfills) the ordering/triggering is not guaranteed. Any idea how this could be accounted for?
+        latest_record = next(records)
+        print('**********')
+        print(latest_record)
+        if latest_record.label == 'partition':
+            partition_completed = latest_record.entry_data.text
+            print('partition_completed:')
+            print(partition_completed)
         yield RunRequest(
             run_key=context.cursor,
             # TODO where to get this from from triggering_asset? Do I need to filter DagsterEventType.ASSET_MATERIALIZATION and get the partiiton key manually? This seems quite cumbersome
-            #tags={"latest_partition": ...}
+            tags={"latest_partition": partition_completed}
         )
     return my_asset_sensor
 

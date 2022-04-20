@@ -11,13 +11,15 @@
 
 with source_data as (
 
-    select 1 as id
+    SELECT * FROM {{ source("ssh_demo", "combined_asset") }}
+    /*select 1 as id
     union all
     select null as id
+    */
 
 )
 
-select *
+select *, 1 as id
 from source_data
 
 /*

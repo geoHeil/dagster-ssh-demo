@@ -49,6 +49,7 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
             # TODO account for hive-based partitioning!
             print('********')
             con.execute("create schema if not exists ssh_demo;")
+            ##f"create or replace table {self._table_path(context)} as "
             con.execute(
                 f"create or replace view {self._table_path(context)} as "
                 f"select * from read_parquet('{to_scan}');"

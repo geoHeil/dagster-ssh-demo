@@ -33,7 +33,7 @@ class PartitionedParquetIOManager(IOManager):
         if isinstance(obj, pandas.DataFrame):
             row_count = len(obj)
             context.log.info(f"Row count: {row_count}")
-            obj.to_parquet(path=path, index=False)
+            obj.to_parquet(path=path, index=False, compression='gzip')
         elif isinstance(obj, pyspark.sql.DataFrame):
             row_count = obj.count()
             obj.write.parquet(path=path, mode="overwrite", compression="gzip")
@@ -42,6 +42,12 @@ class PartitionedParquetIOManager(IOManager):
         # TODO: include as ASSET Observation/Asset Materialization!
         yield MetadataEntry.int(value=row_count, label="row_count")
         yield MetadataEntry.path(path=path, label="path")
+
+        if context.has_asset_partitions:
+            start, end = context.asset_partitions_time_window
+            dt_format = "%Y%m%d"
+            dt_formatted = start.strftime(dt_format)
+            yield MetadataEntry.text(dt_formatted, label="partition")
 
     def load_input(self, context) -> Union[pyspark.sql.DataFrame, str]:
         path = self._get_path(context.upstream_output)
