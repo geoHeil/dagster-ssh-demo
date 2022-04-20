@@ -39,16 +39,18 @@ docker-compose up
 
 
 Further topics:
-- dagster YARN awareness like Oozie
 - general code review
 - later docker-compose the example for deployment
-- UI inconsistencies for Job an Asset graph view
-  - tags for compute_kind (missing in asset view)
-  - upstream asset changed stale (in asset view)
 
 open MRs/issues:
  - direct asset_key access https://github.com/dagster-io/dagster/pull/7395 (TODO fix workaround)
- - compute_kind metadata missing https://github.com/dagster-io/dagster/issues/7503
+ - UI inconsistencies for Job an Asset graph view
+  - compute_kind metadata missing https://github.com/dagster-io/dagster/issues/7503
+  - stale UI notification in asset https://github.com/dagster-io/dagster/issues/7434
+
+ Extended topics:
+ - dagster YARN awareness like Oozie K8s on YARN?
+ - multi repository multi workspace multi git repo/python package example deployment
 
 
 ## installing a custom dagster version:
