@@ -3,5 +3,10 @@ version: 2
 sources:
   - name: ssh_demo
     tables:
-      - name: baz_asset
       - name: combined_asset
+  - name: staging
+    tables:
+      - name: foo_scd2_asset
+      - name: bar_scd2_asset
+      - name: baz_scd2_asset
+      

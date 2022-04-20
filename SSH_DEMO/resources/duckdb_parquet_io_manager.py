@@ -1,16 +1,12 @@
-from operator import ge
 import os
 
 import duckdb
 import pandas as pd
-
-from dagster import Field, check, get_dagster_logger, io_manager
-from dagster.seven.temp_dir import get_system_temp_directory
 import pyspark
+from dagster import Field, check, get_dagster_logger, io_manager
 
-from .parquet_io_manager import PartitionedParquetIOManager
-#from filelock import FileLock
 from SSH_DEMO.resources.locking_utils import FileLock
+from .parquet_io_manager import PartitionedParquetIOManager
 
 
 class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
@@ -22,54 +18,49 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
             con = self._connect_duckdb(context)
 
             path = self._get_path(context, get_base=True)
-            get_dagster_logger().info(f'partitions: {context.has_asset_partitions}, type: {context.dagster_type.typing_type} ***')
+            get_dagster_logger().info(
+                f'partitions: {context.has_asset_partitions}, type: {context.dagster_type.typing_type} ***')
             if context.has_asset_partitions:
                 # to_scan = os.path.join(os.path.dirname(path), "*.parquet")
-                
+
                 # directly run else case: all partitions shouldbe reigstered in duckDB
                 to_scan = os.path.join(path, "*", "*.parquet")
             else:
                 # we fact two choices here: 1) it is a pandas dataframe (a single file is written)
                 # 2) it is a spark dataframe and a whole directory is created
                 # However, (3) if this is the last point of the IO manager the output might be any
-                
+
                 if context.dagster_type.typing_type == pd.DataFrame:
                     to_scan = path
                 else:
-                    #if context.dagster_type.typing_type == pyspark.sql.DataFrame:
+                    # if context.dagster_type.typing_type == pyspark.sql.DataFrame:
                     # we get a whole folder back!
                     to_scan = os.path.join(path, "*.parquet")
-                #else:
+                # else:
                 #    to_scan = path
+            schema = self.get_schema(context)
 
-
-            print('********')
-            print(to_scan)
-            get_dagster_logger().info(f'scanning: {to_scan}')
-            # TODO account for hive-based partitioning!
-            print('********')
-            con.execute("create schema if not exists ssh_demo;")
-            ##f"create or replace table {self._table_path(context)} as "
+            get_dagster_logger().info(f'scanning: {to_scan} for schema: {schema}')
+            con.execute(f"create schema if not exists {schema};")
             con.execute(
                 f"create or replace view {self._table_path(context)} as "
                 f"select * from read_parquet('{to_scan}');"
-                #f"select * from parquet_scan('{to_scan}');"
             )
 
     def load_input(self, context):
-        #check.invariant(not context.has_asset_partitions, "Can't load partitioned inputs")
+        # check.invariant(not context.has_asset_partitions, "Can't load partitioned inputs")
 
         if context.dagster_type.typing_type == pd.DataFrame:
             con = self._connect_duckdb(context)
             return con.execute(f"SELECT * FROM {self._table_path(context)}").fetchdf()
         elif context.dagster_type.typing_type == pyspark.sql.DataFrame:
             # TODO figure out - or use native get path function from the parquet_io_manager
-            #path = self._table_path(context)
+            # path = self._table_path(context)
             path = self._get_path(context, get_base=True)
-            print('******************')
-            print(path)
-            get_dagster_logger().info(f'P: {path}')
-            print('******************')
+            # print('******************')
+            # print(path)
+            get_dagster_logger().info(f'Loading from input: {path}')
+            # print('******************')
             return context.resources.pyspark.spark_session.read.parquet(path)
 
         check.failed(
@@ -78,7 +69,17 @@ class DuckDBPartitionedParquetIOManager(PartitionedParquetIOManager):
         )
 
     def _table_path(self, context):
-        return f"ssh_demo.{context.asset_key.path[-1]}"
+        schema = self.get_schema(context)
+        return f"{schema}.{context.asset_key.path[-1]}"
+
+    def get_schema(self, context):
+        metadata = context.metadata
+        if 'db_zone' in metadata:
+            schema = metadata['db_zone']
+        else:
+            schema = "ssh_demo"
+        return schema
+        # return "ssh_demo"
 
     def _connect_duckdb(self, context):
         ddb_path = context.resource_config["duckdb_path"]
@@ -99,7 +100,7 @@ def duckdb_partitioned_parquet_io_manager(init_context):
     import pathlib
     out_path = pathlib.Path() / "warehouse_location"
     out_path.mkdir(parents=True, exist_ok=True)
-    
+
     return DuckDBPartitionedParquetIOManager(
         base_path=init_context.resource_config.get("base_path", str(out_path.resolve()))
     )

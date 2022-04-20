@@ -4,9 +4,10 @@ from typing import Union
 import pandas
 import pandas as pd
 import pyspark
-
 from dagster import Field, IOManager, MetadataEntry, OutputContext, check, io_manager
-#from dagster.seven.temp_dir import get_system_temp_directory
+
+
+# from dagster.seven.temp_dir import get_system_temp_directory
 
 
 class PartitionedParquetIOManager(IOManager):
@@ -24,7 +25,7 @@ class PartitionedParquetIOManager(IOManager):
         self._base_path = base_path
 
     def handle_output(
-        self, context: OutputContext, obj: Union[pandas.DataFrame, pyspark.sql.DataFrame]
+            self, context: OutputContext, obj: Union[pandas.DataFrame, pyspark.sql.DataFrame]
     ):
         path = self._get_path(context)
         if "://" not in self._base_path:
@@ -35,6 +36,7 @@ class PartitionedParquetIOManager(IOManager):
             context.log.info(f"Row count: {row_count}")
             obj.to_parquet(path=path, index=False, compression='gzip')
         elif isinstance(obj, pyspark.sql.DataFrame):
+            # TODO: this can cause heavy double materialization if the upstream DAG is not cached
             row_count = obj.count()
             obj.write.parquet(path=path, mode="overwrite", compression="gzip")
         else:
@@ -43,11 +45,16 @@ class PartitionedParquetIOManager(IOManager):
         yield MetadataEntry.int(value=row_count, label="row_count")
         yield MetadataEntry.path(path=path, label="path")
 
+        ################# used for passing additional metadata for transitive asset sensors
         if context.has_asset_partitions:
             start, end = context.asset_partitions_time_window
             dt_format = "%Y-%m-%d"
             dt_formatted = start.strftime(dt_format)
             yield MetadataEntry.text(dt_formatted, label="partition")
+        else:
+            partition_tag_value = context.step_context._plan_data.pipeline_run.tags["latest_partition"]
+            context.add_output_metadata({"latest_partition": partition_tag_value})
+        ################# used for passing additional metadata for transitive asset sensors
 
     def load_input(self, context) -> Union[pyspark.sql.DataFrame, str]:
         path = self._get_path(context.upstream_output)
@@ -75,7 +82,7 @@ class PartitionedParquetIOManager(IOManager):
                 partition_str_long = start.strftime(dt_format_long) + "_" + end.strftime(dt_format_long)
                 # is the same (for this dummy example)
                 partition_str = start.strftime(dt_format)
-                return os.path.join(self._base_path,  key, f'dt={partition_str}',f"{key}__{partition_str_long}.parquet")
+                return os.path.join(self._base_path, key, f'dt={partition_str}', f"{key}__{partition_str_long}.parquet")
             else:
                 return os.path.join(self._base_path, f"{key}")
 
@@ -88,7 +95,7 @@ def local_partitioned_parquet_io_manager(init_context):
     import pathlib
     out_path = pathlib.Path() / "warehouse_location"
     out_path.mkdir(parents=True, exist_ok=True)
-    
+
     return PartitionedParquetIOManager(
         base_path=init_context.resource_config.get("base_path", str(out_path.resolve()))
     )

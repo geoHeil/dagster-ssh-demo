@@ -1,11 +1,17 @@
+from dagster import DailyPartitionsDefinition
 from dagster.utils import file_relative_path
+
+START_DATE = "2022-01-01"
+DATE_FORMAT = "%Y-%m-%d"
+daily_partitions_def = DailyPartitionsDefinition(start_date=START_DATE)
+
 DBT_PROJECT_DIR = file_relative_path(__file__, "../../ssh_demo_dbt")
 DBT_PROFILES_DIR = DBT_PROJECT_DIR + "/config"
 import os
 from dagster_dbt import dbt_cli_resource
 from dagster_pyspark import pyspark_resource
 
-#duck_db_path = file_relative_path(__file__, "duckdb.local.duckdb")
+# duck_db_path = file_relative_path(__file__, "duckdb.local.duckdb")
 dbt_local_resource = dbt_cli_resource.configured(
     # "vars": {"duckdb_path": duck_db_path}
     # , "target": "local"
@@ -36,7 +42,6 @@ from SSH_DEMO.resources.dummy_pyspark import my_dummy_pyspark_resource
 from SSH_DEMO.resources.parquet_io_manager import local_partitioned_parquet_io_manager
 from SSH_DEMO.resources.duckdb_parquet_io_manager import duckdb_partitioned_parquet_io_manager
 
-
 resource_defs_ssh = {
     "credentials": the_credentials.configured({"username": "foo", "password": "bar"}),
     "ssh": my_ssh_resource.configured({"remote_host": "localhost", "remote_port": 2222}),
@@ -55,15 +60,22 @@ resource_defs_ingest = {
     "dbt": dbt_local_resource,
 }
 
+resource_defs_dbt = {
+    "io_manager": duckdb_partitioned_parquet_io_manager.configured(
+        {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+    ),
+    "dbt": dbt_local_resource,
+}
+
 resource_defs = {
     **resource_defs_ssh,
     **resource_defs_pyspark,
-    #"io_manager": local_partitioned_parquet_io_manager,
+    # "io_manager": local_partitioned_parquet_io_manager,
     # "parquet_io_manager": local_partitioned_parquet_io_manager,
     "io_manager": duckdb_partitioned_parquet_io_manager.configured(
-    #"warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
+        # "warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
         {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
     ),
-    
+
     "dbt": dbt_local_resource,
 }
