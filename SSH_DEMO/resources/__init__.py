@@ -32,6 +32,7 @@ configured_pyspark = pyspark_resource.configured(
 
 from SSH_DEMO.resources.credentials import the_credentials
 from SSH_DEMO.resources.ssh import my_ssh_resource
+from SSH_DEMO.resources.dummy_pyspark import my_dummy_pyspark_resource
 from SSH_DEMO.resources.parquet_io_manager import local_partitioned_parquet_io_manager
 from SSH_DEMO.resources.duckdb_parquet_io_manager import duckdb_partitioned_parquet_io_manager
 
@@ -43,6 +44,15 @@ resource_defs_ssh = {
 
 resource_defs_pyspark = {
     "pyspark": configured_pyspark,
+}
+
+resource_defs_ingest = {
+    **resource_defs_ssh,
+    "io_manager": duckdb_partitioned_parquet_io_manager.configured(
+        {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+    ),
+    "pyspark": my_dummy_pyspark_resource,
+    "dbt": dbt_local_resource,
 }
 
 resource_defs = {

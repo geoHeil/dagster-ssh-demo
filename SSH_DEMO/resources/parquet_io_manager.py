@@ -45,7 +45,7 @@ class PartitionedParquetIOManager(IOManager):
 
         if context.has_asset_partitions:
             start, end = context.asset_partitions_time_window
-            dt_format = "%Y%m%d"
+            dt_format = "%Y-%m-%d"
             dt_formatted = start.strftime(dt_format)
             yield MetadataEntry.text(dt_formatted, label="partition")
 
