@@ -18,7 +18,7 @@ run_launcher:
       - DAGSTER_POSTGRES_USER
       - DAGSTER_POSTGRES_PASSWORD
       - DAGSTER_POSTGRES_DB
-    network: docker_example_network
+    network: dagster_network
     container_kwargs:
       auto_remove: true
 
