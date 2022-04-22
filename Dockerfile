@@ -9,7 +9,7 @@ USER root
 RUN mkdir -p $DAGSTER_HOME
 RUN groupadd -r dagster && useradd -m -r -g dagster dagster && \
     chown -R dagster:dagster $DAGSTER_HOME
-USER dagster
+# USER dagster
 
 RUN mkdir -p $DAGSTER_HOME
 WORKDIR $DAGSTER_HOME
@@ -26,11 +26,11 @@ ARG MAMBA_DOCKERFILE_ACTIVATE=1  # (otherwise python will not be found)
 FROM builder AS dagit
 EXPOSE 3000
 RUN chown -R dagster:dagster $DAGSTER_HOME
-USER dagster:dagster
+#USER dagster:dagster
 CMD ["dagit", "-h", "0.0.0.0", "--port", "3000", "-w", "workspace.yaml"]
 
 FROM builder AS daemon
-USER dagster:dagster
+#USER dagster:dagster
 CMD ["dagster-daemon", "run"]
 
 # Formatting
@@ -43,17 +43,17 @@ COPY . /src
 FROM builder AS ssh-demo
 COPY . ./src
 WORKDIR $DAGSTER_HOME/src/
-USER dagster:dagster
+#USER dagster:dagster
 CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-f", "SSH_DEMO/repository.py"]
 
 FROM builder AS ssh-demo-test
 COPY . ./src
 WORKDIR $DAGSTER_HOME/src/
-USER dagster:dagster
+# USER dagster:dagster
 CMD ["python", "-m", "pytest", ".", "-v"]
 
 FROM builder AS other
 COPY workspaces/other/ ./src
 WORKDIR $DAGSTER_HOME/src/
-USER dagster:dagster
+#USER dagster:dagster
 CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4001", "-f", "repo.py"]
