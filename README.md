@@ -41,6 +41,7 @@ docker-compose up
 Further topics:
 - general code review
 - later docker-compose the example for deployment
+  - DIND problems: https://dagster.slack.com/archives/C01U954MEER/p1650643391313319
 
 open MRs/issues:
  - direct asset_key access https://github.com/dagster-io/dagster/pull/7395 (TODO fix workaround)
@@ -63,3 +64,26 @@ pip install -e python_modules/dagster
 ## pipeline overview
 
 ![pipeline overview](img/pipeline.png)
+
+
+## deployment 
+
+> inspired by https://github.com/dehume/big-data-madison-dagster/blob/main/README.md
+
+### Quick Start
+Assumes you have [Docker](https://www.docker.com/) running on your machine. To start up the project do the following:
+
+1. `make start-detached`
+2. Access dagit: [http://localhost:3000/](http://localhost:3000/)
+
+The `Makefile` also has some handy commands for running formatting (`make fmt`) and running tests for the two workspaces (`make test-ssh-demo`).
+
+
+
+### cleanup
+
+```
+docker-compose down
+
+rm -r warehouse_docker postgres-dagster
+´``

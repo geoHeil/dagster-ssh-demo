@@ -1,9 +1,198 @@
-version: "3.7"
+---
+version: "3.9"
+
+x-build:
+  &default-build
+  context: .
+  dockerfile: Dockerfile
+
+x-app-vars:
+  &default-app-vars
+  DAGSTER_POSTGRES_HOSTNAME: "postgresql"
+  DAGSTER_POSTGRES_DB: "postgres_db"
+  DAGSTER_POSTGRES_USER: "postgres_user"
+  DAGSTER_POSTGRES_PASSWORD: "postgres_password"
+
 services:
+  # SFTP dummy data source container
   sftp:
     image: atmoz/sftp
+    container_name: sftp
     volumes:
         - ./sft_sample/upload:/home/foo/upload
     ports:
         - "2222:22"
     command: foo:bar:1001
+    networks:
+      - dagster_network
+
+  # Dagster core services
+  # This service runs dagit, which loads the user code from the user code(s) container(s).
+  # Since our instance uses the QueuedRunCoordinator, any runs submitted from dagit will be put on
+  # a queue and later dequeued and launched by dagster-daemon.
+  dagit:
+    build:
+      << : *default-build
+      target: dagit
+    container_name: dagit
+    #restart: on-failure
+    environment:
+      << : *default-app-vars
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgresql
+      - ssh-demo
+      - other
+    profiles:
+      - dagster
+    volumes:
+    # Make docker client accessible so we can terminate containers from dagit
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
+      - ./workspace_docker.yaml:/opt/dagster/dagster_home/workspace.yaml
+      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+    networks:
+      - dagster_network
+
+  # This service runs the dagster-daemon process, which is responsible for taking runs
+  # off of the queue and launching them, as well as creating runs from schedules or sensors.
+  dagster-daemon:
+    build:
+      << : *default-build
+      target: daemon
+    container_name: dagster-daemon
+    #restart: on-failure
+    environment:
+      << : *default-app-vars
+    depends_on:
+      - postgresql
+      - ssh-demo
+      - other
+    profiles:
+      - dagster
+    volumes:
+    # Make docker client accessible so we can launch containers using host docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
+      - ./workspace_docker.yaml:/opt/dagster/dagster_home/workspace.yaml
+      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+    networks:
+      - dagster_network
+
+  # This service runs the postgres DB used by dagster for run storage, schedule storage,
+  # and event log storage.
+  postgresql:
+    image: postgres:14.2
+    container_name: postgresql
+    environment:
+      POSTGRES_DB: postgres_db
+      POSTGRES_USER: postgres_user
+      POSTGRES_PASSWORD: postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres-dagster:/var/lib/postgresql/data
+    networks:
+      - dagster_network
+
+
+  # This service runs the gRPC server that loads and executes your user code, in both dagit
+  # and dagster-daemon. By setting DAGSTER_CURRENT_IMAGE to its own image, we tell the
+  # run launcher to use this same image when launching runs in a new container as well.
+  # Multiple containers like this can be deployed separately - each just needs to run on
+  # its own port, and have its own entry in the workspace.yaml file that's loaded by dagit.
+
+  # workspace
+  ssh-demo:
+    build:
+      << : *default-build
+      target: ssh-demo
+    container_name: ssh-demo
+    #restart: always
+    environment:
+      << : *default-app-vars
+      DAGSTER_CURRENT_IMAGE: "ssh-demo"
+      # Keys for localstack
+      #AWS_ACCESS_KEY_ID: test
+      #AWS_SECRET_ACCESS_KEY: test
+    #depends_on:
+      #- localstack
+      #- mongodb
+    #ports:
+    #  - "4040:4040"
+    # enable for spark debugging
+    volumes:
+      - .:/opt/dagster/dagster_home/src
+    profiles:
+      - dagster
+    networks:
+      - dagster_network
+
+  ssh-demo-test:
+    build:
+      << : *default-build
+      target: ssh-demo-test
+    volumes:
+      - .:/opt/dagster/dagster_home/src
+    profiles:
+      - ssh-demo-test
+
+  other:
+    build:
+      << : *default-build
+      target: other
+    #restart: always
+    container_name: other
+    environment:
+      << : *default-app-vars
+      DAGSTER_CURRENT_IMAGE: "other"
+      # Keys for localstack
+      #AWS_ACCESS_KEY_ID: test
+      #AWS_SECRET_ACCESS_KEY: test
+    #depends_on:
+    #  - localstack
+    #  - mongodb
+    volumes:
+      - ./workspaces/other:/opt/dagster/dagster_home/src
+    profiles:
+      - dagster
+    networks:
+      - dagster_network
+
+  # Formatting
+  format:
+    build:
+      << : *default-build
+      target: test
+    volumes:
+      - .:/src
+    command: >
+      /bin/sh -c "black src/ && isort src/ && yamllint ."
+    profiles:
+      - format
+
+  # Localstack
+  #localstack:
+  #  image: localstack/localstack
+  #  container_name: localstack
+  #  ports:
+  #    - "4566:4566"
+  #  environment:
+  #    HOSTNAME: localhost
+  #    SERVICES: s3
+  #    AWS_ACCESS_KEY_ID: test
+  #    AWS_SECRET_ACCESS_KEY: test
+  #    DEFAULT_REGION: us-east-1
+  #  volumes:
+  #    - ./local_stack.sh:/docker-entrypoint-initaws.d/create_localstack_infra.sh
+  #  networks:
+  #    - dagster_network
+
+networks:
+  dagster_network:
+    driver: bridge
+    name: dagster_network
+
+volumes:
+  postgresql:

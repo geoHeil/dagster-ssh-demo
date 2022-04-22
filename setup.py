@@ -12,6 +12,7 @@ setuptools.setup(
         f"dagster-dbt=={dagster_version}",
         f"dagster-postgres=={dagster_version}",
         f"dagster-pyspark=={dagster_version}",
+        f"dagster-docker=={dagster_version}",
         f"dagit=={dagster_version}",
         "pytest",
     ],

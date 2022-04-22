@@ -30,6 +30,42 @@ notebook:
 	($(CONDA_ACTIVATE) "${PROJECT_NAME}" ; jupyter lab)
 
 
+# docker stuff
+# https://github.com/dehume/big-data-madison-dagster/blob/main/Makefile
+.PHONY: start
+start:
+	@docker compose --profile dagster up --build
+
+.PHONY: start-detached
+start-detached:
+	@docker compose --profile dagster up -d --build
+
+.PHONY: restart-data-analytics
+restart-ssh-demo:
+	@docker container restart $$(docker ps -aqf "name=ssh-demo")
+
+.PHONY: restart-data-science
+restart-other:
+	@docker container restart $$(docker ps -aqf "name=other")
+
+.PHONY: down
+down:
+	@docker compose --profile dagster down --remove-orphans
+
+.PHONY: fmt
+fmt:
+	@docker compose build -- format
+	@docker compose run -- format
+
+.PHONY: test-ssh-demo
+test-ssh-demo:
+	@docker compose build -- ssh-demo-test
+	@docker compose run -- ssh-demo-test-test
+
+
+cleanup:
+	rm -r postgres-dagster warehouse_location_dagster
+
 #################################################################################
 # PROJECT RULES                                                                 #
 #################################################################################

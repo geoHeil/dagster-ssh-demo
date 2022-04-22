@@ -15,6 +15,7 @@ dependencies:
 
   - pip:
     - dagster
+    - dagster-docker
     - dagster-ssh
     - dagster-pandas
     - dagster-postgres

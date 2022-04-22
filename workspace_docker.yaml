@@ -1,0 +1,10 @@
+---
+load_from:
+  - grpc_server:
+      host: ssh-demo
+      port: 4000
+      location_name: "ssh-demo"
+  - grpc_server:
+      host: other
+      port: 4001
+      location_name: "other"
