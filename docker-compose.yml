@@ -83,8 +83,7 @@ services:
   # This service runs the postgres DB used by dagster for run storage, schedule storage,
   # and event log storage.
   postgresql:
-    #image: postgres:14.2
-    image: postgres:11
+    image: postgres:14.2
     container_name: postgresql
     environment:
       POSTGRES_DB: postgres_db
