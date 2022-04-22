@@ -44,7 +44,10 @@ from SSH_DEMO.resources.duckdb_parquet_io_manager import duckdb_partitioned_parq
 
 resource_defs_ssh = {
     "credentials": the_credentials.configured({"username": "foo", "password": "bar"}),
-    "ssh": my_ssh_resource.configured({"remote_host": "localhost", "remote_port": 2222}),
+    # local execution
+    #"ssh": my_ssh_resource.configured({"remote_host": "localhost", "remote_port": 2222}),
+    # in docker it must be a different host
+    "ssh": my_ssh_resource.configured({"remote_host": "sftp", "remote_port": 2222}),
 }
 
 resource_defs_pyspark = {
