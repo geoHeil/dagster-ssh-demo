@@ -51,7 +51,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
       - ./workspace_docker.yaml:/opt/dagster/dagster_home/workspace.yaml
-      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+      #- ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
     networks:
       - dagster_network
 
@@ -76,14 +76,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
       - ./workspace_docker.yaml:/opt/dagster/dagster_home/workspace.yaml
-      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+      #- ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
     networks:
       - dagster_network
 
   # This service runs the postgres DB used by dagster for run storage, schedule storage,
   # and event log storage.
   postgresql:
-    image: postgres:14.2
+    #image: postgres:14.2
+    image: postgres:11
     container_name: postgresql
     environment:
       POSTGRES_DB: postgres_db
@@ -91,8 +92,9 @@ services:
       POSTGRES_PASSWORD: postgres_password
     ports:
       - "5432:5432"
-    volumes:
-      - ./postgres-dagster:/var/lib/postgresql/data
+    #volumes:
+    #  - ./postgres-dagster:/var/lib/postgresql/data
+
     networks:
       - dagster_network
 
@@ -194,5 +196,5 @@ networks:
     driver: bridge
     name: dagster_network
 
-volumes:
-  postgresql:
+#volumes:
+#  postgresql:
