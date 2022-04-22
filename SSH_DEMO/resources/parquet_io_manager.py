@@ -4,7 +4,7 @@ from typing import Union
 import pandas
 import pandas as pd
 import pyspark
-from dagster import Field, IOManager, MetadataEntry, OutputContext, check, io_manager
+from dagster import Field, IOManager, MetadataEntry, OutputContext, check, get_dagster_logger, io_manager
 
 
 # from dagster.seven.temp_dir import get_system_temp_directory
@@ -52,8 +52,11 @@ class PartitionedParquetIOManager(IOManager):
             dt_formatted = start.strftime(dt_format)
             yield MetadataEntry.text(dt_formatted, label="partition")
         else:
-            partition_tag_value = context.step_context._plan_data.pipeline_run.tags["latest_partition"]
-            context.add_output_metadata({"latest_partition": partition_tag_value})
+            try:
+                partition_tag_value = context.step_context._plan_data.pipeline_run.tags["latest_partition"]
+                context.add_output_metadata({"latest_partition": partition_tag_value})
+            except:
+                get_dagster_logger().info("run is not partitioned - cannot add partitioning tags for downstream propagation")
         ################# used for passing additional metadata for transitive asset sensors
 
     def load_input(self, context) -> Union[pyspark.sql.DataFrame, str]:

@@ -46,7 +46,7 @@ open MRs/issues:
  - direct asset_key access https://github.com/dagster-io/dagster/pull/7395 (TODO fix workaround)
  - UI inconsistencies for Job an Asset graph view
   - compute_kind metadata missing https://github.com/dagster-io/dagster/issues/7503 and https://github.com/dagster-io/dagster/issues/6956
-  - stale UI notification in asset https://github.com/dagster-io/dagster/issues/7434 why is this also a problem in the jobs view?
+  - stale UI notification in asset https://github.com/dagster-io/dagster/issues/7434 why is this also a problem in the jobs view https://dagster.slack.com/archives/C01U954MEER/p1650625527293049?
   
 
  Extended topics:
