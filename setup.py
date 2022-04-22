@@ -1,6 +1,6 @@
 import setuptools
 
-dagster_version = "0.14.9"
+dagster_version = "0.14.10"
 setuptools.setup(
     name="SSH_DEMO",
     packages=setuptools.find_packages(exclude=["SSH_DEMO_tests"]),

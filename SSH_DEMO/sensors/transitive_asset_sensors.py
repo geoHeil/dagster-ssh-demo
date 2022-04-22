@@ -88,7 +88,7 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
                     latest_partition = \
                         [me for me in materialization.metadata_entries if me.label == "latest_partition"][
                             0].entry_data.text
-                    get_dagster_logger().inof()(f'Curr_part {curr_partition}: latest: {latest_partition} for asset: {asset_key}')
+                    get_dagster_logger().info(f'Curr_part {curr_partition}: latest: {latest_partition} for asset: {asset_key}')
                     asset_partition_materialized[
                         asset_key] = True if latest_partition == curr_partition else False  # materialization record exists for upstream partition for stateful SCD2 asset
                 else:
