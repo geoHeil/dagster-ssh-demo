@@ -47,7 +47,7 @@ resource_defs_ssh = {
     # local execution
     #"ssh": my_ssh_resource.configured({"remote_host": "localhost", "remote_port": 2222}),
     # in docker it must be a different host
-    "ssh": my_ssh_resource.configured({"remote_host": "sftp", "remote_port": 2222}),
+    "ssh": my_ssh_resource.configured({"remote_host": "sftp", "remote_port": 22}),
 }
 
 resource_defs_pyspark = {
