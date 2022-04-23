@@ -35,7 +35,8 @@ services:
       << : *default-build
       target: dagit
     container_name: dagit
-    #restart: on-failure
+    # TODO why is this somethimes failing with looks like DB needs to be migrated?
+    restart: on-failure
     environment:
       << : *default-app-vars
     ports:
@@ -61,7 +62,8 @@ services:
       << : *default-build
       target: daemon
     container_name: dagster-daemon
-    #restart: on-failure
+    # TODO: whys does this thing
+    restart: on-failure
     environment:
       << : *default-app-vars
     depends_on:
