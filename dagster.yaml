@@ -21,8 +21,7 @@ run_launcher:
       - DAGSTER_POSTGRES_HOSTNAME
     network: dagster_network
     container_kwargs:
-      #auto_remove: true
-      auto_remove: false
+      auto_remove: true
 
 run_storage:
   module: dagster_postgres.run_storage

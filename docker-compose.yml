@@ -51,7 +51,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
       - ./workspace_docker.yaml:/opt/dagster/dagster_home/workspace.yaml
-      #- ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
     networks:
       - dagster_network
 
@@ -76,7 +76,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./dagster.yaml:/opt/dagster/dagster_home/dagster.yaml
       - ./workspace_docker.yaml:/opt/dagster/dagster_home/workspace.yaml
-      #- ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
     networks:
       - dagster_network
 
@@ -91,8 +91,8 @@ services:
       POSTGRES_PASSWORD: postgres_password
     ports:
       - "5432:5432"
-    #volumes:
-    #  - ./postgres-dagster:/var/lib/postgresql/data
+    volumes:
+      - ./postgres-dagster:/var/lib/postgresql/data
 
     networks:
       - dagster_network
@@ -137,6 +137,7 @@ services:
       target: ssh-demo-test
     volumes:
       - .:/opt/dagster/dagster_home/src
+      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
     profiles:
       - ssh-demo-test
 
