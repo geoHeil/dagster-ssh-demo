@@ -113,7 +113,8 @@ services:
     #restart: always
     environment:
       << : *default-app-vars
-      DAGSTER_CURRENT_IMAGE: "ssh_demo_ssh-demo"
+      DAGSTER_CURRENT_IMAGE: "dagster-ssh-demo_ssh-demo"
+      #DAGSTER_CURRENT_IMAGE: "ssh_demo_ssh-demo"
       # Keys for localstack
       #AWS_ACCESS_KEY_ID: test
       #AWS_SECRET_ACCESS_KEY: test
@@ -147,7 +148,8 @@ services:
     container_name: other
     environment:
       << : *default-app-vars
-      DAGSTER_CURRENT_IMAGE: "ssh_demo_other"
+      #DAGSTER_CURRENT_IMAGE: "ssh_demo_other"
+      DAGSTER_CURRENT_IMAGE: "dagster-ssh-demo_other"
       # Keys for localstack
       #AWS_ACCESS_KEY_ID: test
       #AWS_SECRET_ACCESS_KEY: test
