@@ -18,9 +18,11 @@ run_launcher:
       - DAGSTER_POSTGRES_USER
       - DAGSTER_POSTGRES_PASSWORD
       - DAGSTER_POSTGRES_DB
+      - DAGSTER_POSTGRES_HOSTNAME
     network: dagster_network
     container_kwargs:
-      auto_remove: true
+      #auto_remove: true
+      auto_remove: false
 
 run_storage:
   module: dagster_postgres.run_storage
