@@ -6,6 +6,7 @@ DATE_FORMAT = "%Y-%m-%d"
 daily_partitions_def = DailyPartitionsDefinition(start_date=START_DATE)
 
 DBT_PROJECT_DIR = file_relative_path(__file__, "../../ssh_demo_dbt")
+DB_PATH = DBT_PROJECT_DIR + "/../warehouse_location/ssh_demo.duckdb"
 DBT_PROFILES_DIR = DBT_PROJECT_DIR + "/config"
 import os
 from dagster_dbt import dbt_cli_resource
@@ -57,7 +58,8 @@ resource_defs_pyspark = {
 resource_defs_ingest = {
     **resource_defs_ssh,
     "io_manager": duckdb_partitioned_parquet_io_manager.configured(
-        {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+        #{"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+        {"duckdb_path": DB_PATH}
     ),
     "pyspark": my_dummy_pyspark_resource,
     "dbt": dbt_local_resource,
@@ -65,7 +67,8 @@ resource_defs_ingest = {
 
 resource_defs_dbt = {
     "io_manager": duckdb_partitioned_parquet_io_manager.configured(
-        {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+        #{"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+        {"duckdb_path": DB_PATH}
     ),
     "dbt": dbt_local_resource,
 }
@@ -77,7 +80,8 @@ resource_defs = {
     # "parquet_io_manager": local_partitioned_parquet_io_manager,
     "io_manager": duckdb_partitioned_parquet_io_manager.configured(
         # "warehouse_io_manager": duckdb_partitioned_parquet_io_manager.configured(
-        {"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+        #{"duckdb_path": os.path.join(DBT_PROJECT_DIR, "ssh_demo.duckdb")}
+        {"duckdb_path": DB_PATH}
     ),
 
     "dbt": dbt_local_resource,

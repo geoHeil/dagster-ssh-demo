@@ -3,5 +3,5 @@ ssh_demo_dbt:
   outputs:
     local:
       type: duckdb
-      path: ssh_demo.duckdb
+      path: ../warehouse_location/ssh_demo.duckdb
       schema: ssh_demo
