@@ -41,7 +41,7 @@ docker-compose up
 Further topics:
 - general code review
 - later docker-compose the example for deployment
-  - DIND problems: https://dagster.slack.com/archives/C01U954MEER/p1650643391313319
+  - Volume mounts problems for docker executor: https://dagster.slack.com/archives/C01U954MEER/p1650643391313319
 
 open MRs/issues:
  - direct asset_key access https://github.com/dagster-io/dagster/pull/7395 (TODO fix workaround)
@@ -53,6 +53,8 @@ open MRs/issues:
  Extended topics:
  - dagster YARN awareness like Oozie K8s on YARN?
  - multi repository multi workspace multi git repo/python package example deployment
+  - https://dagster.slack.com/archives/C01U954MEER/p1650643391313319 is perhaps a first step towards this
+  - there are still open questions with regards to volume mounts
 
 
 ## installing a custom dagster version:
