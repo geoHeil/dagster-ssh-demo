@@ -23,7 +23,7 @@ run_launcher:
     container_kwargs:
       auto_remove: true
       volumes:
-        - warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+        - /Users/geoheil/Downloads/fooo/dagster-ssh-demo/warehouse_location_dagster:/opt/dagster/dagster_home/src/warehouse_location
 
 run_storage:
   module: dagster_postgres.run_storage

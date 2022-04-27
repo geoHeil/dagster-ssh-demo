@@ -126,7 +126,8 @@ services:
     # enable for spark debugging
     volumes:
       - .:/opt/dagster/dagster_home/src
-      - ./warehouse_location_dagster:/opt/dagster/dagster_home/warehouse_location
+      #- /Users/geoheil/Downloads/fooo/dagster-ssh-demo/warehouse_location_dagster:/opt/dagster/dagster_home/src/warehouse_location
+      - ./warehouse_location_dagster:/opt/dagster/dagster_home/src/warehouse_location
 
     profiles:
       - dagster

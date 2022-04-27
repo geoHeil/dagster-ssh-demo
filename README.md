@@ -34,8 +34,6 @@ docker-compose up
   - is it needed at all?
   - can it be more direct i.e. passed down instead of listened?
   - can the listening be improved (pushed down)?
-- optional resources / lazy instantiation https://dagster.slack.com/archives/C01U954MEER/p1650448663629669
-  - same goes for DBT using duckDB
 
 
 Further topics:
@@ -48,6 +46,8 @@ open MRs/issues:
  - UI inconsistencies for Job an Asset graph view
   - compute_kind metadata missing https://github.com/dagster-io/dagster/issues/7503 and https://github.com/dagster-io/dagster/issues/6956
   - stale UI notification in asset https://github.com/dagster-io/dagster/issues/7434 why is this also a problem in the jobs view https://dagster.slack.com/archives/C01U954MEER/p1650625527293049?
+
+  - lazy resource initialization https://github.com/dagster-io/dagster/issues/7585 and https://github.com/dagster-io/dagster/issues/7586
   
 
  Extended topics:
@@ -72,9 +72,11 @@ pip install -e python_modules/dagster
 
 > inspired by https://github.com/dehume/big-data-madison-dagster/blob/main/README.md
 
+
 ### Quick Start
 Assumes you have [Docker](https://www.docker.com/) running on your machine. To start up the project do the following:
 
+0. modify the dagster.yaml (container_kwargs/volumes) configuration to point to the local directory (must be an absolute path) you want to use for the volume mapping
 1. `make start-detached`
 2. Access dagit: [http://localhost:3000/](http://localhost:3000/)
 
