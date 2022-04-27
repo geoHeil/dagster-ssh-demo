@@ -1,10 +1,11 @@
 import time
 
-from dagster import job, op, repository, schedule
+from dagster import job, op, repository, schedule, get_dagster_logger
 
 
 @op
 def hello():
+    get_dagster_logger().info("hello was here")
     return 1
 
 

@@ -82,7 +82,7 @@ Assumes you have [Docker](https://www.docker.com/) running on your machine. To s
 
 The `Makefile` also has some handy commands for running formatting (`make fmt`) and running tests for the two workspaces (`make test-ssh-demo`).
 
-
+> NOTICE: in this multi-container setup pipeline reload only works when stopping and restarting (docker-compose down & up) the container.
 
 ### cleanup
 
