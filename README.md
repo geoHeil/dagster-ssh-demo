@@ -40,6 +40,13 @@ Further topics:
 - general code review
 - later docker-compose the example for deployment
   - Volume mounts problems for docker executor: https://dagster.slack.com/archives/C01U954MEER/p1650643391313319
+  - different volumes: https://dagster.slack.com/archives/C01U954MEER/p1651071610336319?thread_ts=1651050285.387139&cid=C01U954MEER 
+  - For example you could add this to your docker-compose file for that specific gRPC container:
+
+```
+environment:
+  DAGSTER_CLI_API_GRPC_CONTAINER_CONTEXT: '{"docker": {"container_kwargs": {"volumes": ["/abs/repo.py:/opt/dagster/app/"] } } }'
+```
 
 open MRs/issues:
  - direct asset_key access https://github.com/dagster-io/dagster/pull/7395 (TODO fix workaround)
