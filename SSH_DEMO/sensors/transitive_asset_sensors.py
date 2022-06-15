@@ -1,18 +1,20 @@
 from typing import Dict
 
-from dagster import sensor, DefaultSensorStatus, AssetKey, EventRecordsFilter, DagsterEventType, RunRequest, \
-    asset_sensor, asset, AssetGroup, get_dagster_logger
+from dagster import (AssetKey, AssetSelection, DagsterEventType,
+                     DefaultSensorStatus, EventRecordsFilter, RunRequest,
+                     asset, asset_sensor, define_asset_job, get_dagster_logger,
+                     sensor)
 
 from SSH_DEMO.resources import daily_partitions_def
 
 
-def make_multi_join_sensor_for_asset(asset, asset_group):
+def make_multi_join_sensor_for_asset(asset):
     """
     For the 3 input assets foo, bar, baz (and their respective daily partition)
     AND their derived <<xx>>_scd2 compacted representation
     all need to be completed before triggering the downstream (combined) asset.
     """
-    job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
+    job_def = define_asset_job(name=asset.op.name + "_job", selection=AssetSelection.assets(asset))
 
     @sensor(job=job_def, name=asset.op.name + "_sensor", default_status=DefaultSensorStatus.RUNNING)
     def multi_asset_join_sensor(context):
@@ -107,8 +109,8 @@ def make_multi_join_sensor_for_asset(asset, asset_group):
     return multi_asset_join_sensor
 
 
-def make_single_sensor_for_asset(asset, triggering_asset: asset, asset_group: AssetGroup):
-    job_def = asset_group.build_job(name=asset.op.name + "_job", selection=[asset.op.name])
+def make_single_sensor_for_asset(asset, triggering_asset: asset):
+    job_def = define_asset_job(name=asset.op.name + "_job", selection=AssetSelection.assets(asset))
 
     # TODO: is this assumption valid that asset_key is identical to op.name?
     # https://dagster.slack.com/archives/C01U954MEER/p1650011014029099
